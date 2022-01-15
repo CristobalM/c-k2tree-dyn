@@ -16,7 +16,7 @@ jobs:
       - checkout
       - run:
           name: "Install deps"
-          command: "sudo apt install cmake googletest"
+          command: "sudo apt install -y cmake googletest"
       - run:
           name: "CMakeFiles"
           command: "cmake ."
