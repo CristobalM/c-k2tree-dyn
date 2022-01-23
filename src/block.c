@@ -40,21 +40,21 @@ SOFTWARE.
 #endif
 
 struct point_search_result {
-  struct child_result last_child_result_reached;
-  TREE_DEPTH_T depth_reached;
-  int point_exists;
-  TREE_DEPTH_T treedepth;
+    struct child_result last_child_result_reached;
+    TREE_DEPTH_T depth_reached;
+    int point_exists;
+    TREE_DEPTH_T treedepth;
 };
 
 struct insertion_location {
-  uint32_t insertion_index;
-  struct point_search_result parent_node;
-  TREE_DEPTH_T remaining_depth;
+    uint32_t insertion_index;
+    struct point_search_result parent_node;
+    TREE_DEPTH_T remaining_depth;
 };
 
 struct split_location {
-  uint32_t new_frontier_node_position;
-  uint32_t new_frontier_node_relative_depth;
+    uint32_t new_frontier_node_position;
+    uint32_t new_frontier_node_relative_depth;
 };
 
 uint32_t skip_table[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
@@ -119,7 +119,19 @@ int sequential_scan_child(struct block *input_block, uint32_t input_node_idx,
 int child(struct block *input_block, uint32_t input_node_idx,
           uint32_t requested_child_position,
           TREE_DEPTH_T input_node_relative_depth, struct child_result *result,
-          struct queries_state *qs, TREE_DEPTH_T block_depth);
+          struct queries_state *qs, TREE_DEPTH_T block_depth, int *curr_frontier_idx);
+
+
+int skip_children_subtree(
+        struct block *input_block,
+        uint32_t input_node_idx,
+        uint32_t requested_child_position,
+        uint32_t input_node_relative_depth,
+        uint32_t block_depth,
+        struct child_result *result,
+        struct queries_state *qs,
+        int *curr_frontier_idx
+);
 
 int find_point(struct block *input_block, struct queries_state *qs,
                struct point_search_result *psr, TREE_DEPTH_T block_depth);
@@ -133,12 +145,16 @@ int get_previous_siblings_count(struct block *input_block,
                                 uint32_t child_code);
 
 int make_room(struct block *input_block, struct insertion_location *il);
+
 int insert_point_mc(struct block *input_block, struct morton_code *mc,
                     struct insertion_location *il);
+
 int make_new_block(struct block *input_block, uint32_t from, uint32_t to,
                    struct block *new_block);
+
 int split_block(struct block *input_block, struct queries_state *qs,
                 TREE_DEPTH_T block_depth);
+
 int reset_sequential_scan_child(struct queries_state *qs);
 
 int insert_point_at(struct block *insertion_block,
@@ -183,13 +199,55 @@ int merge_blocks(struct block *parent_block, struct block *child_block,
 
 /* PRIVATE FUNCTIONS IMPLEMENTATIONS */
 
+
+const int8_t childT[16][4] = {
+/*0000*/ {-1, -1, -1, -1},
+/*0001*/
+         {-1, -1, -1, 1},
+/*0010*/
+         {-1, -1, 1,  -1},
+/*0011*/
+         {-1, -1, 1,  2},
+/*0100*/
+         {-1, 1,  -1, -1},
+/*0101*/
+         {-1, 1,  -1, 2},
+/*0110*/
+         {-1, 1,  2,  -1},
+/*0111*/
+         {-1, 1,  2,  3},
+/*1000*/
+         {1,  -1, -1, -1},
+/*1001*/
+         {1,  -1, -1, 2},
+/*1010*/
+         {1,  -1, 2,  -1},
+/*1011*/
+         {1,  -1, 2,  3},
+/*1100*/
+         {1,  2,  -1, -1},
+/*1101*/
+         {1,  2,  -1, 3},
+/*1110*/
+         {1,  2,  3,  -1},
+/*1111*/
+         {1,  2,  3,  4}
+};
+
 int child(struct block *input_block, uint32_t input_node_idx,
           uint32_t requested_child_position,
           TREE_DEPTH_T input_node_relative_depth, struct child_result *result,
-          struct queries_state *qs, TREE_DEPTH_T block_depth) {
-  TREE_DEPTH_T tree_depth = qs->treedepth;
-  if (block_depth + input_node_relative_depth + 1 == tree_depth) {
-    /* Create leaf result */
+          struct queries_state *qs, TREE_DEPTH_T block_depth, int *curr_frontier_idx) {
+  uint32_t node;
+  CHECK_ERR(read_node(input_block, input_node_idx, &node));
+  uint8_t soughtChild = (uint8_t) childT[node][requested_child_position];
+
+  if (soughtChild == (uint8_t) -1) {
+    result->exists = FALSE;
+    return SUCCESS_ECODE;
+  }
+
+  if (input_node_relative_depth + block_depth + 1 == qs->treedepth) {
     result->resulting_block = input_block;
     result->resulting_node_idx = input_node_idx;
     result->resulting_relative_depth = input_node_relative_depth;
@@ -198,81 +256,48 @@ int child(struct block *input_block, uint32_t input_node_idx,
     return SUCCESS_ECODE_K2T;
   }
 
-  uint32_t frontier_traversal_idx = 0;
-  int is_frontier;
-#ifdef DEBUG_STATS
-  struct timeval tval_before, tval_after, tval_result;
-  gettimeofday(&tval_before, NULL);
-#endif
-  is_frontier =
-      frontier_check(input_block, input_node_idx, &frontier_traversal_idx);
-
-#ifdef DEBUG_STATS
-  gettimeofday(&tval_after, NULL);
-  timersub(&tval_after, &tval_before, &tval_result);
-  qs->dstats.time_on_sequential_scan +=
-      (unsigned long)tval_result.tv_sec * 1000000 + tval_result.tv_usec;
-#endif
-
-  if (is_frontier) {
-    struct block *child_block =
-        get_child_block(input_block, frontier_traversal_idx);
-    int child_err_code =
-        child(child_block, 0, requested_child_position, 0, result, qs,
-              block_depth + input_node_relative_depth);
-    if (child_err_code != SUCCESS_ECODE_K2T &&
-        child_err_code != DOES_NOT_EXIST_CHILD_ERR) {
-      return child_err_code;
-    }
-
-    result->previous_block = input_block;
-    result->previous_preorder = input_node_idx;
-    result->previous_to_current_index = requested_child_position;
-    result->previous_depth = input_node_relative_depth;
-    if (result->resulting_relative_depth + result->block_depth + 1 ==
-        qs->treedepth) {
-      result->is_leaf_result = TRUE;
-    }
-    result->check_frontier = !result->exists;
-    result->went_frontier = TRUE;
-
-    return child_err_code;
+  // is frontier?
+  if (input_block->preorders != NULL &&
+      *curr_frontier_idx < input_block->children &&
+      input_node_idx == input_block->preorders[*curr_frontier_idx]) {
+    struct block *next_block = &input_block->children_blocks[*curr_frontier_idx];
+    *curr_frontier_idx = 0;
+    skip_children_subtree(next_block, 0, requested_child_position,
+                          0,
+                          block_depth + input_node_relative_depth,
+                          result, qs, curr_frontier_idx);
+  } else {
+    skip_children_subtree(input_block, input_node_idx, requested_child_position,
+                          input_node_relative_depth, block_depth, result, qs, curr_frontier_idx);
   }
 
-  int exists = 0;
-  CHECK_ERR(child_exists(input_block, input_node_idx, requested_child_position,
-                         &exists));
-  if (!exists) {
-    result->exists = FALSE;
+  return SUCCESS_ECODE;
+}
+
+int skip_children_subtree(
+        struct block *input_block,
+        uint32_t input_node_idx,
+        uint32_t requested_child_position,
+        uint32_t input_node_relative_depth,
+        uint32_t block_depth,
+        struct child_result *result,
+        struct queries_state *qs,
+        int *curr_frontier_idx
+) {
+
+  if(input_node_relative_depth + block_depth + 1 == qs->treedepth){
     result->resulting_block = input_block;
+    result->resulting_node_idx = input_node_idx;
+    result->resulting_relative_depth = input_node_relative_depth;
+    result->is_leaf_result = TRUE;
     result->block_depth = block_depth;
-    return DOES_NOT_EXIST_CHILD_ERR;
+    return SUCCESS_ECODE_K2T;
   }
 
-  uint32_t subtrees_to_skip = get_subtree_skipping_qty(
-      input_block, input_node_idx, requested_child_position);
-  qs->find_split_data = FALSE;
-#ifdef DEBUG_STATS
-  gettimeofday(&tval_before, NULL);
-#endif
-  CHECK_ERR(sequential_scan_child(input_block, input_node_idx, subtrees_to_skip,
-                                  &frontier_traversal_idx,
-                                  input_node_relative_depth, qs, block_depth));
 
-#ifdef DEBUG_STATS
-  gettimeofday(&tval_after, NULL);
-  timersub(&tval_after, &tval_before, &tval_result);
-  qs->dstats.time_on_sequential_scan +=
-      (unsigned long)tval_result.tv_sec * 1000000 + tval_result.tv_usec;
-#endif
 
-  result->resulting_block = input_block;
-  result->resulting_node_idx = qs->sc_result.child_preorder + 1;
-  result->resulting_relative_depth = input_node_relative_depth + 1;
-  result->exists = TRUE;
-  result->block_depth = block_depth;
 
-  return SUCCESS_ECODE_K2T;
+
 }
 
 int reset_sequential_scan_child(struct queries_state *qs) {
@@ -293,155 +318,6 @@ int sequential_scan_child(struct block *input_block, uint32_t input_node_idx,
                           TREE_DEPTH_T input_node_relative_depth,
                           struct queries_state *qs, TREE_DEPTH_T block_depth) {
 
-  reset_sequential_scan_child(qs);
-
-  struct sequential_scan_result *result = &qs->sc_result;
-
-  if (subtrees_to_skip == 0) {
-    result->child_preorder = input_node_idx;
-    result->node_relative_depth = input_node_relative_depth;
-    return SUCCESS_ECODE_K2T;
-  }
-
-  push_int_stack(&qs->not_yet_traversed, (int)subtrees_to_skip);
-
-  if (qs->find_split_data) {
-    struct node_subtree_info nsi;
-    nsi.node_index = input_node_idx;
-    nsi.node_relative_depth = input_node_relative_depth;
-    nsi.subtree_size = 1;
-    push_nsi_t_stack(&qs->subtrees_count, nsi);
-  }
-
-  uint32_t current_node_index = input_node_idx;
-  TREE_DEPTH_T depth = input_node_relative_depth;
-  TREE_DEPTH_T real_depth = depth + block_depth;
-
-  while (!empty_int_stack(&qs->not_yet_traversed)) {
-    current_node_index++;
-
-    int is_frontier;
-
-#ifdef DEBUG_STATS
-    struct timeval tval_before, tval_after, tval_result;
-    gettimeofday(&tval_before, NULL);
-#endif
-    is_frontier =
-        frontier_check(input_block, input_node_idx, frontier_traversal_idx);
-#ifdef DEBUG_STATS
-    gettimeofday(&tval_after, NULL);
-    timersub(&tval_after, &tval_before, &tval_result);
-    qs->dstats.time_on_frontier_check +=
-        (unsigned long)tval_result.tv_sec * 1000000 + tval_result.tv_usec;
-#endif
-
-    int reaching_leaf = (real_depth == qs->treedepth - 1);
-
-    if (!reaching_leaf && !is_frontier) {
-      depth++;
-    }
-
-    /* start block of split data */
-    if (qs->find_split_data) {
-      struct node_subtree_info nsi_w;
-      nsi_w.node_index = current_node_index;
-      nsi_w.node_relative_depth = depth;
-      nsi_w.subtree_size = 1;
-      push_nsi_t_stack(&qs->subtrees_count, nsi_w);
-    }
-    /* end block of split data */
-
-#ifdef DEBUG_STATS
-    gettimeofday(&tval_before, NULL);
-#endif
-    is_frontier =
-        frontier_check(input_block, current_node_index, frontier_traversal_idx);
-#ifdef DEBUG_STATS
-    gettimeofday(&tval_after, NULL);
-    timersub(&tval_after, &tval_before, &tval_result);
-    qs->dstats.time_on_frontier_check +=
-        (unsigned long)tval_result.tv_sec * 1000000 + tval_result.tv_usec;
-#endif
-    real_depth = depth + block_depth;
-    reaching_leaf = (real_depth == qs->treedepth - 1);
-
-    uint32_t current_children_count;
-    count_children(input_block, current_node_index, &current_children_count);
-
-    if (current_children_count > 0 && !reaching_leaf && !is_frontier) {
-
-      push_int_stack(&qs->not_yet_traversed, (int)current_children_count);
-    } else {
-      int next_nyt = pop_int_stack(&qs->not_yet_traversed) - 1;
-
-      int is_info_queue_empty = TRUE;
-      struct node_subtree_info nsi_rep;
-      /* start block of split data */
-      if (qs->find_split_data) {
-        if (!(is_info_queue_empty = empty_nsi_t_stack(&qs->subtrees_count))) {
-          nsi_rep = pop_nsi_t_stack(&qs->subtrees_count);
-          CHECK_ERR(mark_subtree_size(result, nsi_rep.node_index,
-                                      nsi_rep.node_relative_depth,
-                                      nsi_rep.subtree_size));
-          if (!(is_info_queue_empty = empty_nsi_t_stack(&qs->subtrees_count))) {
-            struct node_subtree_info *nsi_rep_within =
-                top_ref_nsi_t_stack(&qs->subtrees_count);
-            nsi_rep_within->subtree_size += nsi_rep.subtree_size;
-          }
-        }
-      }
-      /* end block of split data */
-      while (next_nyt == 0 && !empty_int_stack(&qs->not_yet_traversed)) {
-        next_nyt = pop_int_stack(&qs->not_yet_traversed) - 1;
-
-        /* start block of split data */
-        if (qs->find_split_data && !is_info_queue_empty) {
-          nsi_rep = pop_nsi_t_stack(&qs->subtrees_count);
-          CHECK_ERR(mark_subtree_size(result, nsi_rep.node_index,
-                                      nsi_rep.node_relative_depth,
-                                      nsi_rep.subtree_size));
-
-          if (!(is_info_queue_empty = empty_nsi_t_stack(&qs->subtrees_count))) {
-            struct node_subtree_info *nsi_rep_within =
-                top_ref_nsi_t_stack(&qs->subtrees_count);
-            nsi_rep_within->subtree_size += nsi_rep.subtree_size;
-          }
-        }
-        /* end block of split data */
-
-        if (depth > 0) {
-          depth--;
-        }
-      }
-      if (is_frontier && depth > 0) {
-        depth--;
-      }
-      if (next_nyt > 0) {
-        push_int_stack(&qs->not_yet_traversed, (int)next_nyt);
-      }
-    }
-  }
-  /* end block of split data */
-  if (qs->find_split_data) {
-    if (!empty_nsi_t_stack(&qs->subtrees_count)) {
-      struct node_subtree_info nsi_out_w = pop_nsi_t_stack(&qs->subtrees_count);
-      CHECK_ERR(mark_subtree_size(result, nsi_out_w.node_index,
-                                  nsi_out_w.node_relative_depth,
-                                  nsi_out_w.subtree_size));
-
-      if (!empty_nsi_t_stack(&qs->subtrees_count)) {
-        struct node_subtree_info *nsi_rep_within =
-            top_ref_nsi_t_stack(&qs->subtrees_count);
-        nsi_rep_within->subtree_size += nsi_out_w.subtree_size;
-      }
-    }
-  }
-  /* end block of split data */
-
-  result->child_preorder = current_node_index;
-  result->node_relative_depth = depth;
-
-  return SUCCESS_ECODE_K2T;
 }
 
 int find_point(struct block *input_block, struct queries_state *qs,
@@ -459,8 +335,8 @@ int find_point(struct block *input_block, struct queries_state *qs,
     uint32_t current_mcode = get_code_at_morton_code(&qs->mc, depth);
 
     int child_err_code = child(
-        current_cr.resulting_block, current_cr.resulting_node_idx,
-        current_mcode, relative_depth, &current_cr, qs, current_cr.block_depth);
+            current_cr.resulting_block, current_cr.resulting_node_idx,
+            current_mcode, relative_depth, &current_cr, qs, current_cr.block_depth);
     if (child_err_code != 0 && child_err_code != DOES_NOT_EXIST_CHILD_ERR) {
       return child_err_code;
     }
@@ -539,7 +415,7 @@ int find_insertion_location(struct block *input_block, struct queries_state *qs,
   gettimeofday(&tval_before, NULL);
 #endif
   is_frontier =
-      frontier_check(reached_block, node_index, &frontier_traversal_idx);
+          frontier_check(reached_block, node_index, &frontier_traversal_idx);
 #ifdef DEBUG_STATS
   gettimeofday(&tval_after, NULL);
   timersub(&tval_after, &tval_before, &tval_result);
@@ -553,7 +429,7 @@ int find_insertion_location(struct block *input_block, struct queries_state *qs,
   uint32_t child_code = get_code_at_morton_code(&qs->mc, psr.depth_reached);
 
   uint32_t to_be_skipped_subtrees = get_previous_siblings_count(
-      reached_block, &psr.last_child_result_reached, child_code);
+          reached_block, &psr.last_child_result_reached, child_code);
 
   if (to_be_skipped_subtrees == 0 && psr.depth_reached == 0) {
     if (get_nodes_count(reached_block) == 0) {
@@ -571,9 +447,9 @@ int find_insertion_location(struct block *input_block, struct queries_state *qs,
   gettimeofday(&tval_before, NULL);
 #endif
   CHECK_ERR(sequential_scan_child(
-      reached_block, node_index, to_be_skipped_subtrees,
-      &frontier_traversal_idx, psr.depth_reached - reached_block_depth, qs,
-      reached_block_depth));
+          reached_block, node_index, to_be_skipped_subtrees,
+          &frontier_traversal_idx, psr.depth_reached - reached_block_depth, qs,
+          reached_block_depth));
 #ifdef DEBUG_STATS
   gettimeofday(&tval_after, NULL);
   timersub(&tval_after, &tval_before, &tval_result);
@@ -594,8 +470,9 @@ int get_previous_siblings_count(struct block *input_block,
     return 0;
   }
   return get_subtree_skipping_qty(
-      input_block, parent_node_result->resulting_node_idx, child_code);
+          input_block, parent_node_result->resulting_node_idx, child_code);
 }
+
 /**
  * @brief Makes room for a suffix-path to be inserted
  *
@@ -615,7 +492,7 @@ int make_room(struct block *input_block, struct insertion_location *il) {
 
   if (occupied_nodes <= next_node_index) {
     CHECK_ERR(
-        enlarge_block_size_to(input_block, occupied_nodes + nodes_to_insert));
+            enlarge_block_size_to(input_block, occupied_nodes + nodes_to_insert));
     uint32_t nodes_count = get_nodes_count(input_block);
     set_nodes_count(input_block, nodes_count + nodes_to_insert);
   } else {
@@ -625,6 +502,7 @@ int make_room(struct block *input_block, struct insertion_location *il) {
 
   return SUCCESS_ECODE_K2T;
 }
+
 /**
  * @brief Inserts a point from the given morton code 'mc' and insertion location
  * 'il'
@@ -654,10 +532,11 @@ int insert_point_mc(struct block *input_block, struct morton_code *mc,
   }
 
   CHECK_ERR(fix_frontier_indexes(input_block, il->insertion_index,
-                                 -((int)il->remaining_depth)));
+                                 -((int) il->remaining_depth)));
 
   return SUCCESS_ECODE_K2T;
 }
+
 /**
  * @brief Creates a new block that becomes child of the given one
  *
@@ -687,6 +566,7 @@ int make_new_block(struct block *input_block, uint32_t from, uint32_t to,
 
   return SUCCESS_ECODE_K2T;
 }
+
 /**
  * @brief Splits the given block
  *
@@ -737,7 +617,7 @@ int split_block(struct block *input_block, struct queries_state *qs,
     gettimeofday(&tval_before, NULL);
 #endif
     is_frontier =
-        frontier_check(input_block, node_index, &frontier_traversal_index);
+            frontier_check(input_block, node_index, &frontier_traversal_index);
 #ifdef DEBUG_STATS
     gettimeofday(&tval_after, NULL);
     timersub(&tval_after, &tval_before, &tval_result);
@@ -750,7 +630,7 @@ int split_block(struct block *input_block, struct queries_state *qs,
       if (leftmost_not_frontier == -1) {
         leftmost_not_frontier = node_index;
         leftmost_not_frontier_depth =
-            qs->sc_result.relative_depth_map[node_index];
+                qs->sc_result.relative_depth_map[node_index];
       }
     }
 
@@ -758,7 +638,7 @@ int split_block(struct block *input_block, struct queries_state *qs,
     if (subtree_size >= get_nodes_count(input_block) / 4) {
       new_frontier_node_position = node_index;
       new_frontier_node_relative_depth =
-          qs->sc_result.relative_depth_map[node_index];
+              qs->sc_result.relative_depth_map[node_index];
       found_loc = TRUE;
       break;
     }
@@ -768,15 +648,15 @@ int split_block(struct block *input_block, struct queries_state *qs,
     new_frontier_node_position = 1;
     new_frontier_node_relative_depth = 1;
     if (leftmost_not_frontier != -1) {
-      new_frontier_node_position = (uint32_t)leftmost_not_frontier;
-      new_frontier_node_relative_depth = (uint32_t)leftmost_not_frontier_depth;
+      new_frontier_node_position = (uint32_t) leftmost_not_frontier;
+      new_frontier_node_relative_depth = (uint32_t) leftmost_not_frontier_depth;
     }
   }
 
   /* split block */
   traversal_frontier_idx = 0;
   CHECK_ERR(
-      count_children(input_block, new_frontier_node_position, &children_count));
+          count_children(input_block, new_frontier_node_position, &children_count));
   qs->find_split_data = FALSE;
 #ifdef DEBUG_STATS
   gettimeofday(&tval_before, NULL);
@@ -805,7 +685,7 @@ int split_block(struct block *input_block, struct queries_state *qs,
                            &new_block));
 
   CHECK_ERR(
-      fix_frontier_indexes(&new_block, 0, new_frontier_node_position + 1));
+          fix_frontier_indexes(&new_block, 0, new_frontier_node_position + 1));
 
   int delta_indexes_parent = right_index - new_frontier_node_position;
 
@@ -813,7 +693,7 @@ int split_block(struct block *input_block, struct queries_state *qs,
                                  delta_indexes_parent));
 
   CHECK_ERR(
-      add_frontier_node(input_block, new_frontier_node_position, &new_block));
+          add_frontier_node(input_block, new_frontier_node_position, &new_block));
 
   return SUCCESS_ECODE_K2T;
 }
@@ -843,22 +723,22 @@ int insert_point_at(struct block *insertion_block,
   if (block_has_enough_space(insertion_block, il)) {
     CHECK_ERR(make_room(insertion_block, il));
     struct child_result *lcresult =
-        &(il->parent_node).last_child_result_reached;
+            &(il->parent_node).last_child_result_reached;
     int child_node_is_parent =
-        il->insertion_index == lcresult->resulting_node_idx;
+            il->insertion_index == lcresult->resulting_node_idx;
     if (!child_node_is_parent) {
       uint32_t node_code =
-          get_code_at_morton_code(&qs->mc, il->parent_node.depth_reached);
+              get_code_at_morton_code(&qs->mc, il->parent_node.depth_reached);
       CHECK_ERR(mark_child_in_node(
-          insertion_block,
-          il->parent_node.last_child_result_reached.resulting_node_idx,
-          node_code, &aux_was_set));
+              insertion_block,
+              il->parent_node.last_child_result_reached.resulting_node_idx,
+              node_code, &aux_was_set));
 
       struct block *previous_block = lcresult->previous_block;
       if (lcresult->went_frontier) {
         CHECK_ERR(mark_child_in_node(
-            previous_block, lcresult->previous_preorder,
-            lcresult->previous_to_current_index, &aux_was_set));
+                previous_block, lcresult->previous_preorder,
+                lcresult->previous_to_current_index, &aux_was_set));
       }
     }
 
@@ -876,9 +756,9 @@ int insert_point_at(struct block *insertion_block,
 
   // Check if can enlarge block to fit
   uint32_t next_amount_of_nodes =
-      get_nodes_count(insertion_block) + il->remaining_depth;
+          get_nodes_count(insertion_block) + il->remaining_depth;
   if (next_amount_of_nodes <= qs->max_nodes_count) {
-    uint32_t next_block_sz = 1 << (uint32_t)ceil(log2(next_amount_of_nodes));
+    uint32_t next_block_sz = 1 << (uint32_t) ceil(log2(next_amount_of_nodes));
     CHECK_ERR(enlarge_block_size_to(insertion_block, next_block_sz));
     return insert_point_at(insertion_block, il, qs, block_depth,
                            already_existed);
@@ -896,9 +776,9 @@ int insert_point_at(struct block *insertion_block,
   CHECK_ERR(find_insertion_location(qs->root, qs, &il_split, 0));
 
   return insert_point_at(
-      il_split.parent_node.last_child_result_reached.resulting_block, &il_split,
-      qs, il_split.parent_node.last_child_result_reached.block_depth,
-      already_existed);
+          il_split.parent_node.last_child_result_reached.resulting_block, &il_split,
+          qs, il_split.parent_node.last_child_result_reached.block_depth,
+          already_existed);
 }
 
 /**
@@ -1027,7 +907,7 @@ int report_rec(unsigned long current_col, struct queries_state *qs,
     // report the coordinate, because we have reached a leaf
 
     unsigned long half_length =
-        1UL << ((unsigned long)tree_depth - (unsigned long)real_depth - 1);
+            1UL << ((unsigned long) tree_depth - (unsigned long) real_depth - 1);
 
     for (uint32_t child_pos = 0; child_pos < 4; child_pos++) {
       if (!REPORT_CONTINUE_CONDITION(current_col, half_length, which_report,
@@ -1048,7 +928,7 @@ int report_rec(unsigned long current_col, struct queries_state *qs,
   }
 
   unsigned long half_length =
-      1UL << ((unsigned long)tree_depth - (unsigned long)real_depth - 1UL);
+          1UL << ((unsigned long) tree_depth - (unsigned long) real_depth - 1UL);
 
   uint32_t current_node_index = current_cr->resulting_node_idx;
 
@@ -1110,7 +990,7 @@ int report_rec_interactively(unsigned long current_col,
   if (real_depth + 1 == tree_depth) {
     // report the coordinate, because we have reached a leaf
     unsigned long half_length =
-        1UL << ((unsigned long)tree_depth - (unsigned long)real_depth - 1UL);
+            1UL << ((unsigned long) tree_depth - (unsigned long) real_depth - 1UL);
     for (uint32_t child_pos = 0; child_pos < 4; child_pos++) {
       if (!REPORT_CONTINUE_CONDITION(current_col, half_length, which_report,
                                      child_pos)) {
@@ -1130,7 +1010,7 @@ int report_rec_interactively(unsigned long current_col,
   }
 
   unsigned long half_length =
-      1UL << ((unsigned long)tree_depth - (unsigned long)real_depth - 1UL);
+          1UL << ((unsigned long) tree_depth - (unsigned long) real_depth - 1UL);
 
   uint32_t current_node_index = current_cr->resulting_node_idx;
 
@@ -1188,9 +1068,9 @@ int insert_point(struct block *input_block, unsigned long col,
   struct insertion_location il;
   CHECK_ERR(find_insertion_location(input_block, qs, &il, 0));
   struct block *insertion_block =
-      il.parent_node.last_child_result_reached.resulting_block;
+          il.parent_node.last_child_result_reached.resulting_block;
   TREE_DEPTH_T insertion_block_depth =
-      il.parent_node.last_child_result_reached.block_depth;
+          il.parent_node.last_child_result_reached.block_depth;
   return insert_point_at(insertion_block, &il, qs, insertion_block_depth,
                          already_exists);
 }
@@ -1275,7 +1155,7 @@ int free_rec_block(struct block *input_block) {
 }
 
 int free_rec_block_internal(struct block *input_block) {
-  for (int i = 0; i < (int)input_block->children; i++) {
+  for (int i = 0; i < (int) input_block->children; i++) {
     struct block *current_block = &input_block->children_blocks[i];
     CHECK_ERR(free_rec_block_internal(current_block));
   }
@@ -1298,9 +1178,9 @@ struct k2tree_measurement measure_tree_size(struct block *input_block) {
   unsigned long children_bytes_topology = 0;
 
   for (int child_block_index = 0;
-       child_block_index < (int)input_block->children; child_block_index++) {
+       child_block_index < (int) input_block->children; child_block_index++) {
     struct k2tree_measurement children_measurement =
-        measure_tree_size(&input_block->children_blocks[child_block_index]);
+            measure_tree_size(&input_block->children_blocks[child_block_index]);
     children_total_bytes += children_measurement.total_bytes;
     children_total_blocks += children_measurement.total_blocks;
     children_bytes_topology += children_measurement.bytes_topology;
@@ -1323,25 +1203,25 @@ static inline void sip_select_child(unsigned long coord, coord_t coord_type,
                                     int *selected_child_2,
                                     unsigned long half_length) {
   switch (coord_type) {
-  case COLUMN_COORD:
-    if (coord < half_length) {
-      *selected_child_1 = 0;
-      *selected_child_2 = 1;
-    } else {
-      *selected_child_1 = 2;
-      *selected_child_2 = 3;
-    }
-    break;
-  case ROW_COORD:
-  default:
-    if (coord < half_length) {
-      *selected_child_1 = 0;
-      *selected_child_2 = 2;
-    } else {
-      *selected_child_1 = 1;
-      *selected_child_2 = 3;
-    }
-    break;
+    case COLUMN_COORD:
+      if (coord < half_length) {
+        *selected_child_1 = 0;
+        *selected_child_2 = 1;
+      } else {
+        *selected_child_1 = 2;
+        *selected_child_2 = 3;
+      }
+      break;
+    case ROW_COORD:
+    default:
+      if (coord < half_length) {
+        *selected_child_1 = 0;
+        *selected_child_2 = 2;
+      } else {
+        *selected_child_1 = 1;
+        *selected_child_2 = 3;
+      }
+      break;
   }
 }
 
@@ -1365,13 +1245,13 @@ static int sip_join_rec(struct sip_join_input input,
                         struct child_result *crs, struct morton_code *mc,
                         TREE_DEPTH_T current_depth) {
   TREE_DEPTH_T current_block_depth =
-      crs[current_depth * input.join_size].block_depth;
+          crs[current_depth * input.join_size].block_depth;
   TREE_DEPTH_T tree_depth = input.qss[0]->treedepth;
   TREE_DEPTH_T relative_depth =
-      crs[current_depth * input.join_size].resulting_relative_depth;
+          crs[current_depth * input.join_size].resulting_relative_depth;
   TREE_DEPTH_T real_depth = relative_depth + current_block_depth;
   unsigned long half_length =
-      1UL << ((unsigned long)tree_depth - (unsigned long)real_depth - 1UL);
+          1UL << ((unsigned long) tree_depth - (unsigned long) real_depth - 1UL);
 
   int valid_parts[2] = {TRUE, TRUE};
   int selected_children[2];
@@ -1393,13 +1273,13 @@ static int sip_join_rec(struct sip_join_input input,
         struct pair2dl pair;
         convert_morton_code_to_coordinates(mc, &pair);
         switch (input.join_coords[input.join_size - 1].coord_type) {
-        case COLUMN_COORD:
-          coord_reporter(pair.row, report_state);
-          break;
-        case ROW_COORD:
-        default:
-          coord_reporter(pair.col, report_state);
-          break;
+          case COLUMN_COORD:
+            coord_reporter(pair.row, report_state);
+            break;
+          case ROW_COORD:
+          default:
+            coord_reporter(pair.col, report_state);
+            break;
         }
       } else {
         for (int j = 0; j < input.join_size; j++) {
@@ -1411,16 +1291,16 @@ static int sip_join_rec(struct sip_join_input input,
                            half_length);
 
           struct child_result next_cr =
-              crs[current_depth * input.join_size + j];
+                  crs[current_depth * input.join_size + j];
           CHECK_ERR(child(next_cr.resulting_block, next_cr.resulting_node_idx,
                           selected_children[i],
                           next_cr.resulting_relative_depth, &next_cr,
                           input.qss[j], next_cr.block_depth));
           crs[next_depth_join_index] = next_cr;
           input._join_coords[next_depth_join_index].coord_type =
-              input._join_coords[join_index].coord_type;
+                  input._join_coords[join_index].coord_type;
           input._join_coords[next_depth_join_index].coord =
-              input._join_coords[join_index].coord % half_length;
+                  input._join_coords[join_index].coord % half_length;
 
           if (!next_cr.exists) {
             // debug
@@ -1442,9 +1322,9 @@ int sip_join(struct sip_join_input input, coord_reporter_fun_t coord_reporter,
              void *report_state) {
   TREE_DEPTH_T treedepth = input.qss[0]->treedepth;
   struct child_result *crs =
-      malloc(input.join_size * treedepth * sizeof(struct child_result));
+          malloc(input.join_size * treedepth * sizeof(struct child_result));
   input._join_coords =
-      malloc(input.join_size * treedepth * sizeof(struct sip_ipoint));
+          malloc(input.join_size * treedepth * sizeof(struct sip_ipoint));
   for (int j = 0; j < treedepth; j++) {
     for (int i = 0; i < input.join_size; i++) {
       int index = j * input.join_size + i;
@@ -1472,7 +1352,7 @@ int sip_join(struct sip_join_input input, coord_reporter_fun_t coord_reporter,
 
 // Returns 0 when the block is valid
 int debug_validate_block(struct block *input_block) {
-  for (int node_i = 0; node_i < (int)input_block->nodes_count; node_i++) {
+  for (int node_i = 0; node_i < (int) input_block->nodes_count; node_i++) {
     int container_i = (node_i * 4) / 32;
     uint32_t part = input_block->container[container_i];
     int node_in_part = (node_i * 4) % 32;
@@ -1493,7 +1373,7 @@ int debug_validate_block_rec(struct block *input_block) {
   if (debug_validate_block(input_block))
     return 1;
 
-  for (int i = 0; i < (int)input_block->children; i++) {
+  for (int i = 0; i < (int) input_block->children; i++) {
     int res = debug_validate_block_rec(&input_block->children_blocks[i]);
     if (res)
       return res + 1;
@@ -1504,7 +1384,7 @@ int debug_validate_block_rec(struct block *input_block) {
 
 void debug_print_block(struct block *b) {
   printf("nodes count: %d, container size: %d, block ptr: %p\n", b->nodes_count,
-         b->container_size, (void *)b);
+         b->container_size, (void *) b);
   for (unsigned int i = 0; i < b->container_size; i++) {
     if ((i * 32) >= 4 * b->nodes_count)
       break;
@@ -1528,13 +1408,14 @@ void debug_print_block(struct block *b) {
 
 void debug_print_block_rec(struct block *b) {
   debug_print_block(b);
-  for (int i = 0; i < (int)b->children; i++) {
+  for (int i = 0; i < (int) b->children; i++) {
     debug_print_block_rec(&b->children_blocks[i]);
   }
 }
+
 int naive_scan_points_lazy_init(
-    struct block *input_block, struct queries_state *qs,
-    struct lazy_handler_naive_scan_t *lazy_handler) {
+        struct block *input_block, struct queries_state *qs,
+        struct lazy_handler_naive_scan_t *lazy_handler) {
 
   init_lazy_naive_state_stack(&lazy_handler->states_stack, qs->treedepth * 4);
   lazy_handler->qs = qs;
@@ -1554,7 +1435,7 @@ int naive_scan_points_lazy_init(
 }
 
 int naive_scan_points_lazy_clean(
-    struct lazy_handler_naive_scan_t *lazy_handler) {
+        struct lazy_handler_naive_scan_t *lazy_handler) {
   free_lazy_naive_state_stack(&lazy_handler->states_stack);
   return SUCCESS_ECODE_K2T;
 }
@@ -1564,13 +1445,13 @@ int naive_scan_points_lazy_next(struct lazy_handler_naive_scan_t *lazy_handler,
   *result = lazy_handler->next_result;
   while (!empty_lazy_naive_state_stack(&lazy_handler->states_stack)) {
     lazy_naive_state current =
-        pop_lazy_naive_state_stack(&lazy_handler->states_stack);
+            pop_lazy_naive_state_stack(&lazy_handler->states_stack);
     struct queries_state *qs = lazy_handler->qs;
     struct block *input_block = current.input_block;
     struct child_result *cresult = &current.cr;
 
     TREE_DEPTH_T real_depth =
-        cresult->resulting_relative_depth + current.block_depth;
+            cresult->resulting_relative_depth + current.block_depth;
     for (uint32_t child_pos = current.last_iteration; child_pos < 4;
          child_pos++) {
       if (real_depth == qs->treedepth - 1) {
@@ -1630,13 +1511,13 @@ int naive_scan_points_lazy_next(struct lazy_handler_naive_scan_t *lazy_handler,
 }
 
 int naive_scan_points_lazy_has_next(
-    struct lazy_handler_naive_scan_t *lazy_handler, int *result) {
+        struct lazy_handler_naive_scan_t *lazy_handler, int *result) {
   *result = lazy_handler->has_next;
   return SUCCESS_ECODE_K2T;
 }
 
 int naive_scan_points_lazy_reset(
-    struct lazy_handler_naive_scan_t *lazy_handler) {
+        struct lazy_handler_naive_scan_t *lazy_handler) {
   reset_lazy_naive_state_stack(&lazy_handler->states_stack);
 
   lazy_handler->has_next = FALSE;
@@ -1659,7 +1540,7 @@ int report_band_next(struct lazy_handler_report_band_t *lazy_handler,
   struct queries_state *qs = lazy_handler->qs;
   while (!empty_lazy_report_band_state_t_stack(&lazy_handler->stack)) {
     lazy_report_band_state_t current_state =
-        pop_lazy_report_band_state_t_stack(&lazy_handler->stack);
+            pop_lazy_report_band_state_t_stack(&lazy_handler->stack);
     struct child_result *current_cr = &current_state.current_cr;
     struct block *current_block = current_cr->resulting_block;
     TREE_DEPTH_T current_block_depth = current_cr->block_depth;
@@ -1668,7 +1549,7 @@ int report_band_next(struct lazy_handler_report_band_t *lazy_handler,
     TREE_DEPTH_T real_depth = relative_depth + current_block_depth;
 
     unsigned long half_length =
-        1UL << ((unsigned long)tree_depth - (unsigned long)real_depth - 1);
+            1UL << ((unsigned long) tree_depth - (unsigned long) real_depth - 1);
 
     for (uint32_t child_pos = current_state.last_iteration; child_pos < 4;
          child_pos++) {
@@ -1764,6 +1645,7 @@ int report_column_lazy_init(struct lazy_handler_report_band_t *lazy_handler,
   report_band_lazy_init(lazy_handler, input_block, qs, REPORT_COLUMN, coord);
   return SUCCESS_ECODE_K2T;
 }
+
 int report_row_lazy_init(struct lazy_handler_report_band_t *lazy_handler,
                          struct block *input_block, struct queries_state *qs,
                          uint64_t coord) {
@@ -1847,8 +1729,8 @@ int delete_nodes_in_block(struct block *input_block, struct deletion_state *ds,
 
     if (amount > 0) {
       int err = (copy_nodes_between_blocks_uarr(
-          input_block->container, input_block->container_size, next_container,
-          new_container_size, src_left, dst_left, amount));
+              input_block->container, input_block->container_size, next_container,
+              new_container_size, src_left, dst_left, amount));
 
       if (err) {
         fprintf(stderr, "ERRRORRRR\n");
@@ -1870,12 +1752,12 @@ int delete_nodes_in_block(struct block *input_block, struct deletion_state *ds,
     if (is_frontier) {
       NODES_BV_T *new_preorders = NULL;
       struct block *new_children = NULL;
-      int next_preorders_amount = (int)input_block->children - 1;
+      int next_preorders_amount = (int) input_block->children - 1;
       if (next_preorders_amount > 0) {
         new_preorders = k2tree_alloc_preorders(next_preorders_amount);
         new_children = k2tree_alloc_blocks_array(next_preorders_amount);
         int right_hand_preorders_amount =
-            (int)input_block->children - (frontier_traversal_pos + 1);
+                (int) input_block->children - (frontier_traversal_pos + 1);
 
         if (frontier_traversal_pos > 0) {
           memcpy(new_preorders, input_block->preorders,
@@ -1903,9 +1785,9 @@ int delete_nodes_in_block(struct block *input_block, struct deletion_state *ds,
     }
 
     for (uint32_t node_pos = next_node_to_delete + 1;
-         node_pos < (uint32_t)upper_bound_node; node_pos++) {
+         node_pos < (uint32_t) upper_bound_node; node_pos++) {
       is_frontier =
-          frontier_check(input_block, node_pos, &frontier_traversal_pos);
+              frontier_check(input_block, node_pos, &frontier_traversal_pos);
       if (is_frontier) {
         input_block->preorders[frontier_traversal_pos] -= (current_deleted + 1);
       }
@@ -1920,9 +1802,9 @@ int delete_nodes_in_block(struct block *input_block, struct deletion_state *ds,
     int amount = input_block->nodes_count - next_node_to_delete - 1;
 
     int err = (copy_nodes_between_blocks_uarr(
-        input_block->container, input_block->container_size, next_container,
-        new_container_size, next_node_to_delete + 1,
-        next_node_to_delete - (current_deleted - 1), amount));
+            input_block->container, input_block->container_size, next_container,
+            new_container_size, next_node_to_delete + 1,
+            next_node_to_delete - (current_deleted - 1), amount));
 
     if (err) {
       fprintf(stderr, "ERRRORRRR\n");
@@ -1944,35 +1826,35 @@ int merge_blocks(struct block *parent_block, struct block *child_block,
   int merged_nodes = parent_block->nodes_count + child_block->nodes_count - 1;
   int merged_nodes_bits_amount = merged_nodes * 4;
   int new_container_size =
-      CEIL_OF_DIV(merged_nodes_bits_amount, BITS_SIZE(uint32_t));
+          CEIL_OF_DIV(merged_nodes_bits_amount, BITS_SIZE(uint32_t));
   uint32_t *new_container = k2tree_alloc_u32array(new_container_size);
 
   int err;
   // build merged topology
   err = (copy_nodes_between_blocks_uarr(
-      parent_block->container, parent_block->container_size, new_container,
-      new_container_size, 0, 0, (int)frontier_node_in_parent));
+          parent_block->container, parent_block->container_size, new_container,
+          new_container_size, 0, 0, (int) frontier_node_in_parent));
   if (err) {
     fprintf(stderr, "Error copying nodes 1\n");
     exit(1);
   }
 
   err = (copy_nodes_between_blocks_uarr(
-      child_block->container, child_block->container_size, new_container,
-      new_container_size, 0, (int)frontier_node_in_parent,
-      child_block->nodes_count));
+          child_block->container, child_block->container_size, new_container,
+          new_container_size, 0, (int) frontier_node_in_parent,
+          child_block->nodes_count));
   if (err) {
     fprintf(stderr, "Error copying nodes 2\n");
     exit(1);
   }
 
   int rightmost_amount =
-      (int)parent_block->nodes_count - (frontier_node_in_parent + 1);
+          (int) parent_block->nodes_count - (frontier_node_in_parent + 1);
   if (rightmost_amount > 0) {
     err = (copy_nodes_between_blocks_uarr(
-        parent_block->container, parent_block->container_size, new_container,
-        new_container_size, (int)(frontier_node_in_parent + 1),
-        frontier_node_in_parent + child_block->nodes_count, rightmost_amount));
+            parent_block->container, parent_block->container_size, new_container,
+            new_container_size, (int) (frontier_node_in_parent + 1),
+            frontier_node_in_parent + child_block->nodes_count, rightmost_amount));
     if (err) {
       fprintf(stderr, "Error copying nodes 3\n");
       exit(1);
@@ -1989,7 +1871,7 @@ int merge_blocks(struct block *parent_block, struct block *child_block,
 
   // Find the preorder of the frontier node in parent which will be removed
   int deleting_preorder_position = -1;
-  for (int i = 0; i < (int)parent_block->children; i++) {
+  for (int i = 0; i < (int) parent_block->children; i++) {
     NODES_BV_T curr_preorder = parent_block->preorders[i];
     if (curr_preorder == frontier_node_in_parent) {
       deleting_preorder_position = i;
@@ -2001,7 +1883,7 @@ int merge_blocks(struct block *parent_block, struct block *child_block,
   assert(deleting_preorder_position >= 0);
 
   int right_most_preorders_count =
-      (int)parent_block->children - 1 - deleting_preorder_position;
+          (int) parent_block->children - 1 - deleting_preorder_position;
 
   // If zero, then it means we will have an empty frontier
   if (new_children_size > 0) {
@@ -2028,17 +1910,17 @@ int merge_blocks(struct block *parent_block, struct block *child_block,
 
     for (int i = deleting_preorder_position + child_block->children, j = 0;
          i < deleting_preorder_position + child_block->children +
-                 right_most_preorders_count;
+             right_most_preorders_count;
          i++, j++) {
       new_preorders[i] =
-          parent_block->preorders[deleting_preorder_position + 1 + j] +
-          child_block->nodes_count - 1;
+              parent_block->preorders[deleting_preorder_position + 1 + j] +
+              child_block->nodes_count - 1;
     }
     /* end: preorders */
   }
 
   int next_nodes_count =
-      parent_block->nodes_count - 1 + child_block->nodes_count;
+          parent_block->nodes_count - 1 + child_block->nodes_count;
 
   k2tree_free_u32array(child_block->container, child_block->container_size);
   k2tree_free_preorders(child_block->preorders);
@@ -2047,7 +1929,7 @@ int merge_blocks(struct block *parent_block, struct block *child_block,
   k2tree_free_u32array(parent_block->container, parent_block->container_size);
   k2tree_free_preorders(parent_block->preorders);
   k2tree_free_blocks_array(
-      parent_block->children_blocks); // child block ceased to exist
+          parent_block->children_blocks); // child block ceased to exist
 
   parent_block->preorders = new_preorders;
   parent_block->children = new_children_size;
@@ -2082,7 +1964,7 @@ static int delete_from_node_if_needed(struct block *input_block,
   if (amount_of_children == 1) {
     *has_children = FALSE;
     // printf("piling node %d\n", current_node_id);
-    push_int_stack(&ds->nodes_to_delete, (int)current_node_id);
+    push_int_stack(&ds->nodes_to_delete, (int) current_node_id);
   } else {
     *has_children = TRUE;
     // printf("clearing bit 4*%d + %d\n", current_node_id, child_pos);
@@ -2138,7 +2020,7 @@ int delete_point_rec(struct block *input_block, struct deletion_state *ds,
   if (input_block != cr.resulting_block) {
     if (next_amount_of_nodes_child > 0 &&
         next_amount_of_nodes_child + input_block->nodes_count <
-            ds->qs->max_nodes_count) {
+        ds->qs->max_nodes_count) {
       CHECK_ERR(merge_blocks(input_block, cr.resulting_block, current_node_id));
       did_merge = TRUE;
       cr.resulting_block = NULL;
@@ -2183,4 +2065,5 @@ int delete_point(struct block *input_block, unsigned long col,
 }
 
 declare_stack_of_type(lazy_naive_state)
-    declare_stack_of_type(lazy_report_band_state_t)
+
+declare_stack_of_type(lazy_report_band_state_t)
