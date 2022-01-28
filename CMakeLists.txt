@@ -80,6 +80,9 @@ target_link_libraries(insertions_benchmarks k2dyn)
 add_executable(size_benchmarks benchmarks/size_benchmarks.cpp)
 target_link_libraries(size_benchmarks k2dyn)
 
+add_executable(benchmark1 benchmarks/comparisons2/benchmark1.cpp)
+target_link_libraries(benchmark1 k2dyn)
+
 
 
 find_package(GTest QUIET)

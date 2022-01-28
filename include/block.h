@@ -167,6 +167,7 @@ define_stack_of_type(lazy_naive_state)
   struct lazy_naive_state_stack states_stack;
   pair2dl_t next_result;
   int has_next;
+  uint32_t frontier_traversal_idx;
 
   struct block *tree_root;
 };
@@ -175,6 +176,7 @@ typedef struct {
   struct child_result current_cr;
   uint64_t current_coord;
   uint32_t last_iteration;
+  uint32_t frontier_traversal_idx;
 } lazy_report_band_state_t;
 
 define_stack_of_type(lazy_report_band_state_t)
@@ -185,7 +187,6 @@ define_stack_of_type(lazy_report_band_state_t)
   int which_report;
   uint64_t next_result;
   int has_next;
-
   uint64_t coord_to_report;
   struct block *tree_root;
 };

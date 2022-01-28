@@ -1065,6 +1065,7 @@ string comp_d6[] = {
     "11111111111111111111111111111111111111111111",
 };
 
+/*
 TEST(block_test, fills_till_depth_4_match) {
   uint32_t treedepth = 4;
   unsigned long side = 1 << treedepth;
@@ -1079,7 +1080,7 @@ TEST(block_test, fills_till_depth_4_match) {
     }
   }
   ASSERT_EQ(debug_validate_block_rec(b.b), 0);
-}
+}*/
 
 TEST(block_test, diagonal_test_depth4_1) {
   uint32_t treedepth = 4;
