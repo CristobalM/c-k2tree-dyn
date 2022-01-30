@@ -52,11 +52,6 @@ struct insertion_location {
   TREE_DEPTH_T remaining_depth;
 };
 
-struct split_location {
-  uint32_t new_frontier_node_position;
-  uint32_t new_frontier_node_relative_depth;
-};
-
 uint32_t skip_table[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
                          0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 2, 0, 0, 1, 2,
                          0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 2, 0, 1, 1, 2,
@@ -65,8 +60,7 @@ uint32_t skip_table[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
 const uint8_t nof_children[16] = {0, 1, 1, 2, 1, 2, 2, 3,
                                   1, 2, 2, 3, 2, 3, 3, 4};
 
-static inline int get_node_fast(struct block *input_block,
-                                int current_node_index) {
+static int get_node_fast(struct block *input_block, int current_node_index) {
   const int bits_c = (sizeof(uint32_t) * 8);
   int bit_pos = (int)(4 * current_node_index);
   int c_pos = bit_pos / bits_c;
@@ -76,17 +70,26 @@ static inline int get_node_fast(struct block *input_block,
   return (int)(curr_b >> offset) & 0xf;
 }
 
-static inline uint32_t get_subtree_skipping_qty(struct block *b,
-                                                uint32_t node_idx,
-                                                uint32_t child_idx) {
+static int child_exists_fast(struct block *input_block, int node_idx,
+                             int which_child) {
+  if (node_idx >=
+      (int)input_block->container_size * (int)(sizeof(uint32_t) * 8 / 4)) {
+    return FALSE;
+  }
+  int node = get_node_fast(input_block, node_idx);
+  return ((1 << (3 - which_child)) & node) != 0;
+}
+
+static uint32_t get_subtree_skipping_qty(struct block *b, uint32_t node_idx,
+                                         uint32_t child_idx) {
   int node = get_node_fast(b, node_idx);
   return skip_table[4 * node + child_idx];
 }
 
-static inline int mark_subtree_size(struct sequential_scan_result *sc_result,
-                                    uint32_t node_index,
-                                    TREE_DEPTH_T node_relative_depth,
-                                    uint32_t subtree_size) {
+static int mark_subtree_size(struct sequential_scan_result *sc_result,
+                             uint32_t node_index,
+                             TREE_DEPTH_T node_relative_depth,
+                             uint32_t subtree_size) {
 
   sc_result->subtrees_count_map[node_index] = subtree_size;
   sc_result->relative_depth_map[node_index] = node_relative_depth;
@@ -94,8 +97,8 @@ static inline int mark_subtree_size(struct sequential_scan_result *sc_result,
   return SUCCESS_ECODE_K2T;
 }
 
-static inline int block_has_enough_space(struct block *input_block,
-                                         struct insertion_location *il) {
+static int block_has_enough_space(struct block *input_block,
+                                  struct insertion_location *il) {
   uint32_t allocated_nodes = get_allocated_nodes(input_block);
   return il->remaining_depth <=
          (allocated_nodes - get_nodes_count(input_block));
@@ -254,9 +257,12 @@ int child(struct block *input_block, uint32_t input_node_idx,
     return child_err_code;
   }
 
-  int exists = 0;
-  CHECK_ERR(child_exists(input_block, input_node_idx, requested_child_position,
-                         &exists));
+  //  int exists = 0;
+  //  CHECK_ERR(child_exists(input_block, input_node_idx,
+  //  requested_child_position,
+  //                         &exists));
+  int exists = child_exists_fast(input_block, (int)input_node_idx,
+                                 (int)requested_child_position);
   if (!exists) {
     result->exists = FALSE;
     result->resulting_block = input_block;
@@ -310,6 +316,11 @@ int sequential_scan_child(struct block *input_block, uint32_t input_node_idx,
 
   reset_sequential_scan_child(qs);
 
+  int stack_i = -1;
+  int stack_nsi_i = -1;
+
+  int find_split_data = qs->find_split_data;
+
   struct sequential_scan_result *result = &qs->sc_result;
 
   if (subtrees_to_skip == 0) {
@@ -318,21 +329,25 @@ int sequential_scan_child(struct block *input_block, uint32_t input_node_idx,
     return SUCCESS_ECODE_K2T;
   }
 
-  push_int_stack(&qs->not_yet_traversed, (int)subtrees_to_skip);
 
-  if (qs->find_split_data) {
+  int *stack = qs->not_yet_traversed.data;
+  stack[++stack_i] = (int)subtrees_to_skip;
+
+  nsi_t *nsi_stack = qs->subtrees_count.data;
+
+  if (find_split_data) {
     struct node_subtree_info nsi;
     nsi.node_index = input_node_idx;
     nsi.node_relative_depth = input_node_relative_depth;
     nsi.subtree_size = 1;
-    push_nsi_t_stack(&qs->subtrees_count, nsi);
+    nsi_stack[++stack_nsi_i] = nsi;
   }
 
   uint32_t current_node_index = input_node_idx;
   TREE_DEPTH_T depth = input_node_relative_depth;
   TREE_DEPTH_T real_depth = depth + block_depth;
 
-  while (!empty_int_stack(&qs->not_yet_traversed)) {
+  while (stack_i >= 0) {
     current_node_index++;
 
     int reaching_leaf = (real_depth == qs->treedepth - 1);
@@ -342,12 +357,13 @@ int sequential_scan_child(struct block *input_block, uint32_t input_node_idx,
     }
 
     /* start block of split data */
-    if (qs->find_split_data) {
+    if (find_split_data) {
       struct node_subtree_info nsi_w;
       nsi_w.node_index = current_node_index;
       nsi_w.node_relative_depth = depth;
       nsi_w.subtree_size = 1;
-      push_nsi_t_stack(&qs->subtrees_count, nsi_w);
+      // push_nsi_t_stack(&qs->subtrees_count, nsi_w);
+      nsi_stack[++stack_nsi_i] = nsi_w;
     }
     /* end block of split data */
 
@@ -360,44 +376,43 @@ int sequential_scan_child(struct block *input_block, uint32_t input_node_idx,
 
     uint32_t current_children_count;
 
-    int node = get_node_fast(input_block, current_node_index);
+    int node = get_node_fast(input_block, (int)current_node_index);
     current_children_count = nof_children[node];
 
     if (current_children_count > 0 && !reaching_leaf && !is_frontier) {
-      push_int_stack(&qs->not_yet_traversed, (int)current_children_count);
+      stack[++stack_i] = (int)current_children_count;
     } else {
-      int next_nyt = pop_int_stack(&qs->not_yet_traversed) - 1;
+      int next_nyt = stack[stack_i--] - 1;
 
-      int is_info_queue_empty = TRUE;
       struct node_subtree_info nsi_rep;
       /* start block of split data */
-      if (qs->find_split_data) {
-        if (!(is_info_queue_empty = empty_nsi_t_stack(&qs->subtrees_count))) {
-          nsi_rep = pop_nsi_t_stack(&qs->subtrees_count);
+      if (find_split_data) {
+        if (stack_nsi_i >= 0) {
+          nsi_rep = nsi_stack[stack_nsi_i--];
           CHECK_ERR(mark_subtree_size(result, nsi_rep.node_index,
                                       nsi_rep.node_relative_depth,
                                       nsi_rep.subtree_size));
-          if (!(is_info_queue_empty = empty_nsi_t_stack(&qs->subtrees_count))) {
-            struct node_subtree_info *nsi_rep_within =
-                top_ref_nsi_t_stack(&qs->subtrees_count);
+          if (stack_nsi_i >= 0) {
+            struct node_subtree_info *nsi_rep_within = &nsi_stack[stack_nsi_i];
             nsi_rep_within->subtree_size += nsi_rep.subtree_size;
           }
         }
       }
       /* end block of split data */
-      while (next_nyt == 0 && !empty_int_stack(&qs->not_yet_traversed)) {
-        next_nyt = pop_int_stack(&qs->not_yet_traversed) - 1;
+      while (next_nyt == 0 && stack_i >= 0) {
+        next_nyt = stack[stack_i--] - 1;
 
         /* start block of split data */
-        if (qs->find_split_data && !is_info_queue_empty) {
-          nsi_rep = pop_nsi_t_stack(&qs->subtrees_count);
+        if (find_split_data && stack_nsi_i >= 0) {
+//          nsi_rep = pop_nsi_t_stack(&qs->subtrees_count);
+          nsi_rep = nsi_stack[stack_nsi_i--];
+
           CHECK_ERR(mark_subtree_size(result, nsi_rep.node_index,
                                       nsi_rep.node_relative_depth,
                                       nsi_rep.subtree_size));
 
-          if (!(is_info_queue_empty = empty_nsi_t_stack(&qs->subtrees_count))) {
-            struct node_subtree_info *nsi_rep_within =
-                top_ref_nsi_t_stack(&qs->subtrees_count);
+          if (stack_nsi_i >= 0) {
+            struct node_subtree_info *nsi_rep_within = &nsi_stack[stack_nsi_i];
             nsi_rep_within->subtree_size += nsi_rep.subtree_size;
           }
         }
@@ -412,21 +427,21 @@ int sequential_scan_child(struct block *input_block, uint32_t input_node_idx,
         (*frontier_traversal_idx)++;
       }
       if (next_nyt > 0) {
-        push_int_stack(&qs->not_yet_traversed, (int)next_nyt);
+        stack[++stack_i] = next_nyt;
       }
     }
   }
   /* end block of split data */
-  if (qs->find_split_data) {
-    if (!empty_nsi_t_stack(&qs->subtrees_count)) {
-      struct node_subtree_info nsi_out_w = pop_nsi_t_stack(&qs->subtrees_count);
+  if (find_split_data) {
+    if (stack_nsi_i >= 0) {
+      struct node_subtree_info nsi_out_w = nsi_stack[stack_nsi_i--];
       CHECK_ERR(mark_subtree_size(result, nsi_out_w.node_index,
                                   nsi_out_w.node_relative_depth,
                                   nsi_out_w.subtree_size));
 
       if (!empty_nsi_t_stack(&qs->subtrees_count)) {
         struct node_subtree_info *nsi_rep_within =
-            top_ref_nsi_t_stack(&qs->subtrees_count);
+            &nsi_stack[stack_nsi_i];
         nsi_rep_within->subtree_size += nsi_out_w.subtree_size;
       }
     }
@@ -490,10 +505,14 @@ int find_point(struct block *input_block, struct queries_state *qs,
     if (current_cr.is_leaf_result) {
       uint32_t leaf_code = leaf_child_morton_code(&qs->mc);
 
-      int does_child_exists;
-      _SAFE_OP_K2(child_exists(current_cr.resulting_block,
-                               current_cr.resulting_node_idx, leaf_code,
-                               &does_child_exists));
+      //      int does_child_exists;
+      //      _SAFE_OP_K2(child_exists(current_cr.resulting_block,
+      //                               current_cr.resulting_node_idx, leaf_code,
+      //                               &does_child_exists));
+
+      int does_child_exists =
+          child_exists_fast(current_cr.resulting_block,
+                            (int)current_cr.resulting_node_idx, (int)leaf_code);
       psr->last_child_result_reached = current_cr;
       psr->depth_reached = depth + 1;
       psr->point_exists = does_child_exists;
@@ -909,9 +928,11 @@ int naive_scan_points_rec(struct block *input_block, struct queries_state *qs,
 
   for (uint32_t child_pos = 0; child_pos < 4; child_pos++) {
     if (real_depth == qs->treedepth - 1) {
-      int does_child_exist;
-      child_exists(input_block, cresult->resulting_node_idx, child_pos,
-                   &does_child_exist);
+      //      int does_child_exist;
+      //      child_exists(input_block, cresult->resulting_node_idx, child_pos,
+      //                   &does_child_exist);
+      int does_child_exist = child_exists_fast(
+          input_block, (int)cresult->resulting_node_idx, (int)child_pos);
       if (does_child_exist) {
         struct pair2dl pair;
         add_element_morton_code(&qs->mc, real_depth, child_pos);
@@ -962,9 +983,11 @@ int naive_scan_points_rec_interactively(struct block *input_block,
 
   for (uint32_t child_pos = 0; child_pos < 4; child_pos++) {
     if (real_depth == qs->treedepth - 1) {
-      int does_child_exist;
-      child_exists(input_block, cresult->resulting_node_idx, child_pos,
-                   &does_child_exist);
+      //      int does_child_exist;
+      //      child_exists(input_block, cresult->resulting_node_idx, child_pos,
+      //                   &does_child_exist);
+      int does_child_exist = child_exists_fast(
+          input_block, (int)cresult->resulting_node_idx, (int)child_pos);
       if (does_child_exist) {
         struct pair2dl pair;
         add_element_morton_code(&qs->mc, real_depth, child_pos);
@@ -1029,9 +1052,12 @@ int report_rec(unsigned long current_col, struct queries_state *qs,
                                      child_pos)) {
         continue;
       }
-      int does_child_exist;
-      child_exists(current_block, current_cr->resulting_node_idx, child_pos,
-                   &does_child_exist);
+      //      int does_child_exist;
+      //      child_exists(current_block, current_cr->resulting_node_idx,
+      //      child_pos,
+      //                   &does_child_exist);
+      int does_child_exist = child_exists_fast(
+          current_block, (int)current_cr->resulting_node_idx, (int)child_pos);
       if (does_child_exist) {
         struct pair2dl pair;
         add_element_morton_code(&qs->mc, real_depth, child_pos);
@@ -1114,9 +1140,12 @@ int report_rec_interactively(unsigned long current_col,
                                      child_pos)) {
         continue;
       }
-      int does_child_exist;
-      child_exists(current_block, current_cr->resulting_node_idx, child_pos,
-                   &does_child_exist);
+      //      int does_child_exist;
+      //      child_exists(current_block, current_cr->resulting_node_idx,
+      //      child_pos,
+      //                   &does_child_exist);
+      int does_child_exist = child_exists_fast(
+          current_block, (int)current_cr->resulting_node_idx, child_pos);
       if (does_child_exist) {
         struct pair2dl pair;
         add_element_morton_code(&qs->mc, real_depth, child_pos);
@@ -1439,9 +1468,12 @@ int naive_scan_points_lazy_next(struct lazy_handler_naive_scan_t *lazy_handler,
     for (uint32_t child_pos = current.last_iteration; child_pos < 4;
          child_pos++) {
       if (real_depth == qs->treedepth - 1) {
-        int does_child_exist;
-        child_exists(input_block, cresult->resulting_node_idx, child_pos,
-                     &does_child_exist);
+        //        int does_child_exist;
+        //        child_exists(input_block, cresult->resulting_node_idx,
+        //        child_pos,
+        //                     &does_child_exist);
+        int does_child_exist = child_exists_fast(
+            input_block, (int)cresult->resulting_node_idx, (int)child_pos);
         if (does_child_exist) {
           add_element_morton_code(&qs->mc, real_depth, child_pos);
           convert_morton_code_to_coordinates(&qs->mc,
@@ -1549,9 +1581,12 @@ int report_band_next(struct lazy_handler_report_band_t *lazy_handler,
       }
 
       if (real_depth + 1 == tree_depth) {
-        int does_child_exist;
-        child_exists(current_block, current_cr->resulting_node_idx, child_pos,
-                     &does_child_exist);
+        //        int does_child_exist;
+        //        child_exists(current_block, current_cr->resulting_node_idx,
+        //        child_pos,
+        //                     &does_child_exist);
+        int does_child_exist = child_exists_fast(
+            current_block, (int)current_cr->resulting_node_idx, (int)child_pos);
         if (does_child_exist) {
           struct pair2dl pair;
           add_element_morton_code(&qs->mc, real_depth, child_pos);
