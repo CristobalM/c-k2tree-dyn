@@ -212,4 +212,6 @@ int report_band_has_next(struct lazy_handler_report_band_t *lazy_handler,
 
 int clean_child_result(struct child_result *cresult);
 
+void debug_print_block_tree_structure(struct block *input_block);
+
 #endif /* _BLOCK_H_ */

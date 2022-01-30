@@ -76,11 +76,11 @@ int frontier_check(struct block *input_block, uint32_t node_idx,
 
 struct block *get_child_block(struct block *input_block,
                               uint32_t frontier_node_idx) {
-  if (frontier_node_idx > input_block->children) {
-    fprintf(stderr, "frontier node out of bound %d > %d",
-            (int)frontier_node_idx, (int)input_block->children);
-    exit(1);
-  }
+  //  if (frontier_node_idx > input_block->children) {
+  //    fprintf(stderr, "frontier node out of bound %d > %d",
+  //            (int)frontier_node_idx, (int)input_block->children);
+  //    exit(1);
+  //  }
   return &input_block->children_blocks[frontier_node_idx];
 }
 

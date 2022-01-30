@@ -53,6 +53,11 @@ static void benchmark1(int size) {
             << " microseconds, for input size = " << size
             << ", microsecs/point = " << (double)microseconds / (double)size
             << ", total count = " << count << std::endl;
+
+  debug_print_block_tree_structure(root_block);
+
+  finish_queries_state(&qs);
+  free_rec_block(root_block);
 }
 
 int main(int argc, char **argv) {
