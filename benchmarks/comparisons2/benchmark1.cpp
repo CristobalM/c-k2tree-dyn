@@ -2,24 +2,20 @@
 // Created by Cristobal Miranda on 22-01-22.
 //
 
-
 #include <iostream>
 #include <utility>
 #include <vector>
 
 #include <chrono>
 
-
 extern "C" {
 #include "block.h"
 #include "k2node.h"
 }
 
-
 static void benchmark1(int size) {
 
   static constexpr unsigned long tree_depth = 20;
-
 
   struct block *root_block = create_block();
 
@@ -30,31 +26,33 @@ static void benchmark1(int size) {
   int point_exists;
   for (int i = 0; i < size; i++) {
 
-    insert_point(root_block, i, i, &qs,
-                 &point_exists);
+    insert_point(root_block, i, i, &qs, &point_exists);
   }
   auto end = std::chrono::high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+  auto duration =
+      std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
   auto microseconds = duration.count();
-  std::cout << "Insertion Benchmark 1 took: " << microseconds << " microseconds, for input size = " << size
-            << ", microsecs/point = " << (double) microseconds / (double) size << std::endl;
+  std::cout << "Insertion Benchmark 1 took: " << microseconds
+            << " microseconds, for input size = " << size
+            << ", microsecs/point = " << (double)microseconds / (double)size
+            << std::endl;
 
   start = std::chrono::high_resolution_clock::now();
   int count = 0;
   for (int i = 0; i < size; i++) {
-    has_point(root_block, i, i, &qs,
-              &point_exists);
-    if(point_exists) count++;
+    has_point(root_block, i, i, &qs, &point_exists);
+    if (point_exists)
+      count++;
   }
   end = std::chrono::high_resolution_clock::now();
   duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
   microseconds = duration.count();
 
-  std::cout << "Lookup Benchmark 1 took: " << microseconds << " microseconds, for input size = " << size
-            << ", microsecs/point = " << (double) microseconds / (double) size << ", total count = " << count << std::endl;
-
-
+  std::cout << "Lookup Benchmark 1 took: " << microseconds
+            << " microseconds, for input size = " << size
+            << ", microsecs/point = " << (double)microseconds / (double)size
+            << ", total count = " << count << std::endl;
 }
 
 int main(int argc, char **argv) {
@@ -67,6 +65,4 @@ int main(int argc, char **argv) {
   int size = std::stoi(argv[1]);
 
   benchmark1(size);
-
-
 }

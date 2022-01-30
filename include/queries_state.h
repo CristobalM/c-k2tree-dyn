@@ -63,7 +63,6 @@ struct queries_state {
   int max_nodes_1;
   int max_nodes_2;
 
-
   struct block *root;
 #ifdef DEBUG_STATS
   struct debug_stats dstats;

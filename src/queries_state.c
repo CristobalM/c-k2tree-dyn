@@ -46,7 +46,7 @@ int init_queries_state(struct queries_state *qs, uint32_t tree_depth,
 
   qs->level_threshold_1 = 10;
   qs->level_threshold_2 = 16;
-  qs->max_nodes_1 = 64 <max_nodes_count ? 64 : max_nodes_count;
+  qs->max_nodes_1 = 64 < max_nodes_count ? 64 : max_nodes_count;
   qs->max_nodes_2 = 128 < max_nodes_count ? 128 : max_nodes_count;
 
 #ifdef DEBUG_STATS
