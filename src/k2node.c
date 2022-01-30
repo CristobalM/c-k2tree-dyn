@@ -811,6 +811,7 @@ int k2node_report_band_next(
         first_state.current_coord = current_state.current_coord;
         clean_child_result(&first_state.current_cr);
         first_state.last_iteration = 0;
+        first_state.frontier_traversal_idx = 0;
         first_state.current_cr.resulting_block = node->k2subtree.block_child;
 
         push_lazy_report_band_state_t_stack(&lazy_handler->sub_handler.stack,
