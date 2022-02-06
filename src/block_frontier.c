@@ -129,6 +129,7 @@ int extract_sub_block_frontier(struct block *input_block,
            input_block->children_blocks + from_index_loc,
            sub_block_size * sizeof(struct block));
   }
+  to_fill_bf->children = sub_block_size;
 
   uint32_t next_children = from_index_loc + terminal_block_size;
   NODES_BV_T *new_parent_preorders = NULL;
