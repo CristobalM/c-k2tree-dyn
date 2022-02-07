@@ -44,12 +44,14 @@ struct point_search_result {
   TREE_DEPTH_T depth_reached;
   int point_exists;
   TREE_DEPTH_T treedepth;
+  int level;
 };
 
 struct insertion_location {
   uint32_t insertion_index;
   struct point_search_result parent_node;
   TREE_DEPTH_T remaining_depth;
+  int level;
 };
 
 uint32_t skip_table[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
@@ -540,6 +542,7 @@ int find_point(struct block *input_block, struct queries_state *qs,
 
   uint32_t depth = block_depth;
   uint32_t relative_depth = 0;
+  int level = 0;
   for (depth = block_depth; depth < qs->treedepth; depth++) {
     relative_depth = depth - current_cr.block_depth;
     struct child_result prev_cr = current_cr;
@@ -567,6 +570,7 @@ int find_point(struct block *input_block, struct queries_state *qs,
 
       prev_cr.resulting_node_idx = 0;
       prev_cr.resulting_relative_depth = 0;
+      level++;
     }
 
     psr->treedepth = qs->treedepth;
@@ -575,6 +579,7 @@ int find_point(struct block *input_block, struct queries_state *qs,
       psr->last_child_result_reached = prev_cr;
       psr->depth_reached = depth;
       psr->point_exists = FALSE;
+      psr->level = level;
       return SUCCESS_ECODE_K2T;
     }
 
@@ -587,6 +592,7 @@ int find_point(struct block *input_block, struct queries_state *qs,
       psr->last_child_result_reached = current_cr;
       psr->depth_reached = depth + 1;
       psr->point_exists = does_child_exists;
+      psr->level = level;
       return SUCCESS_ECODE_K2T;
     }
   }
@@ -595,6 +601,7 @@ int find_point(struct block *input_block, struct queries_state *qs,
   psr->last_child_result_reached = current_cr;
   psr->depth_reached = depth - 1;
   psr->point_exists = TRUE;
+  psr->level = level;
 
   return SUCCESS_ECODE_K2T;
 }
@@ -614,6 +621,7 @@ int find_insertion_location(struct block *input_block, struct queries_state *qs,
   uint32_t node_index = psr.last_child_result_reached.resulting_node_idx;
 
   result->parent_node = psr;
+  result->level = psr.level;
 
   if (psr.point_exists || psr.depth_reached == qs->treedepth - 1 ||
       psr.last_child_result_reached.is_leaf_result) {
@@ -954,10 +962,10 @@ int insert_point_at(struct block *insertion_block,
       insertion_block->nodes_count + il->remaining_depth;
 
   int curr_max_nodes;
-  int curr_depth = qs->treedepth - il->remaining_depth - 1;
-  if (curr_depth < qs->level_threshold_1) {
+  int curr_level = il->level;
+  if (curr_level < qs->level_threshold_1) {
     curr_max_nodes = qs->max_nodes_1;
-  } else if (curr_depth < qs->level_threshold_2) {
+  } else if (curr_level < qs->level_threshold_2) {
     curr_max_nodes = qs->max_nodes_2;
   } else {
     curr_max_nodes = qs->max_nodes_count;
@@ -2130,6 +2138,7 @@ int delete_point_rec(struct block *input_block, struct deletion_state *ds,
 
   int did_merge = FALSE;
   if (input_block != cr.resulting_block) {
+
     if (next_amount_of_nodes_child > 0 &&
         next_amount_of_nodes_child + input_block->nodes_count <
             ds->qs->max_nodes_count) {
