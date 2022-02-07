@@ -15,12 +15,12 @@ extern "C" {
 
 static void benchmark1(int size) {
 
-  static constexpr unsigned long tree_depth = 20;
+  static constexpr unsigned long tree_depth = 32;
 
   struct block *root_block = create_block();
 
   struct queries_state qs;
-  init_queries_state(&qs, tree_depth, 256, root_block);
+  init_queries_state(&qs, tree_depth, 1024, root_block);
 
   auto start = std::chrono::high_resolution_clock::now();
   int point_exists;
@@ -54,7 +54,7 @@ static void benchmark1(int size) {
             << ", microsecs/point = " << (double)microseconds / (double)size
             << ", total count = " << count << std::endl;
 
-  debug_print_block_tree_structure(root_block);
+  //  debug_print_block_tree_structure(root_block);
 
   finish_queries_state(&qs);
   free_rec_block(root_block);

@@ -100,8 +100,7 @@ static int mark_subtree_size(struct sequential_scan_result *sc_result,
 static int block_has_enough_space(struct block *input_block,
                                   struct insertion_location *il) {
   uint32_t allocated_nodes = get_allocated_nodes(input_block);
-  return il->remaining_depth <=
-         (allocated_nodes - input_block->nodes_count);
+  return il->remaining_depth <= (allocated_nodes - input_block->nodes_count);
 }
 
 int clean_child_result(struct child_result *cresult) {
@@ -813,15 +812,16 @@ int split_block(struct block *input_block, struct queries_state *qs,
        node_index++) {
 
     is_frontier =
-            frontier_traversal_index < input_block->children &&
-            input_block->preorders[frontier_traversal_index] == node_index;
+        frontier_traversal_index < input_block->children &&
+        input_block->preorders[frontier_traversal_index] == node_index;
     if (is_frontier) {
       frontier_traversal_index++;
       continue;
     }
 
     uint32_t subtree_size = qs->sc_result.subtrees_count_map[node_index];
-    if (subtree_size >= input_block->nodes_count/4 && subtree_size <= input_block->nodes_count*3/4 ) {
+    if (subtree_size >= input_block->nodes_count / 4 &&
+        subtree_size <= input_block->nodes_count * 3 / 4) {
       new_frontier_node_position = node_index;
       new_frontier_node_relative_depth =
           qs->sc_result.relative_depth_map[node_index];
@@ -829,22 +829,22 @@ int split_block(struct block *input_block, struct queries_state *qs,
       break;
     }
 
-    if(subtree_size >= 2 && !found_fb){
+    if (subtree_size >= 2 && !found_fb) {
       found_fb = TRUE;
       fb_new_frontier_node_position = node_index;
-      fb_new_frontier_node_relative_depth = qs->sc_result.relative_depth_map[node_index];
+      fb_new_frontier_node_relative_depth =
+          qs->sc_result.relative_depth_map[node_index];
     }
-
   }
 
   if (!found_loc) {
     printf("shouldnt be possible no split locations\n");
     // exit(1);
-    if(!found_fb){
+    if (!found_fb) {
       printf("not found fb \n");
       exit(1);
     }
-    new_frontier_node_position = fb_new_frontier_node_relative_depth;
+    new_frontier_node_position = fb_new_frontier_node_position;
     new_frontier_node_relative_depth = fb_new_frontier_node_relative_depth;
   }
 
@@ -879,15 +879,13 @@ int split_block(struct block *input_block, struct queries_state *qs,
   CHECK_ERR(make_new_block(input_block, new_frontier_node_position, right_index,
                            &new_block));
 
-  CHECK_ERR(
-      fix_frontier_indexes(&new_block, 0, new_frontier_node_position));
+  CHECK_ERR(fix_frontier_indexes(&new_block, 0, new_frontier_node_position));
 
-  if(right_index > new_frontier_node_position){
+  if (right_index > new_frontier_node_position) {
     int delta_indexes_parent = right_index - new_frontier_node_position;
     CHECK_ERR(fix_frontier_indexes(input_block, new_frontier_node_position + 1,
                                    delta_indexes_parent));
   }
-
 
   CHECK_ERR(
       add_frontier_node(input_block, new_frontier_node_position, &new_block));
