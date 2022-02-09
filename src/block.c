@@ -814,6 +814,7 @@ int split_block(struct block *input_block, struct queries_state *qs,
 
   int is_frontier = FALSE;
   uint32_t frontier_traversal_index = 0;
+  uint32_t frontier_traversal_index_tmp = 0;
 
   int found_loc = FALSE;
   for (uint32_t node_index = 1; node_index <= qs->sc_result.child_preorder;
@@ -828,8 +829,8 @@ int split_block(struct block *input_block, struct queries_state *qs,
     }
 
     uint32_t subtree_size = qs->sc_result.subtrees_count_map[node_index];
-    if (subtree_size >= input_block->nodes_count / 4 &&
-        subtree_size <= input_block->nodes_count * 3 / 4) {
+    if (4 * subtree_size >= input_block->nodes_count &&
+        4 * subtree_size <= input_block->nodes_count * 3) {
       new_frontier_node_position = node_index;
       new_frontier_node_relative_depth =
           qs->sc_result.relative_depth_map[node_index];
@@ -842,6 +843,7 @@ int split_block(struct block *input_block, struct queries_state *qs,
       fb_new_frontier_node_position = node_index;
       fb_new_frontier_node_relative_depth =
           qs->sc_result.relative_depth_map[node_index];
+      frontier_traversal_index_tmp = frontier_traversal_index;
     }
   }
 
@@ -854,6 +856,7 @@ int split_block(struct block *input_block, struct queries_state *qs,
     }
     new_frontier_node_position = fb_new_frontier_node_position;
     new_frontier_node_relative_depth = fb_new_frontier_node_relative_depth;
+    frontier_traversal_index = frontier_traversal_index_tmp;
   }
 
   /* split block */
