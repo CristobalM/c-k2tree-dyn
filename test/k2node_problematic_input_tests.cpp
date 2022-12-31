@@ -7,7 +7,7 @@
 extern "C" {
 #include <k2node.h>
 }
-using vp_t = std::vector<std::pair<unsigned long, unsigned long>>;
+using vp_t = std::vector<std::pair<uint64_t, uint64_t>>;
 
 TEST(k2node_problematic_input_tests, test1) {
 
@@ -1088,7 +1088,7 @@ TEST(k2node_problematic_input_tests, test1) {
       {227224962, 4953000}, {227225016, 5005633},
   };
 
-  using sp_t = std::set<std::pair<unsigned long, unsigned long>>;
+  using sp_t = std::set<std::pair<uint64_t, uint64_t>>;
 
   sp_t set_expected;
 
@@ -1100,7 +1100,7 @@ TEST(k2node_problematic_input_tests, test1) {
     sp_t set_real;
     k2node_scan_points_interactively(
         root_node, &st,
-        [](unsigned long col, unsigned long row, void *rs) {
+        [](uint64_t col, uint64_t row, void *rs) {
           (reinterpret_cast<sp_t *>(rs))->insert({col, row});
         },
         &set_real);
@@ -1121,8 +1121,8 @@ TEST(k2node_problematic_input_tests, test1_more_specific_1) {
   TREE_DEPTH_T cutdepth = 3;
   init_k2qstate(&st, treedepth, 256, cutdepth);
 
-  unsigned long col = 710230858;
-  unsigned long row = 4951110;
+  uint64_t col = 710230858;
+  uint64_t row = 4951110;
 
   int already_exists;
   k2node_insert_point(root_node, col, row, &st, &already_exists);
@@ -1146,14 +1146,14 @@ TEST(k2node_problematic_input_tests, test1_more_specific_1) {
   }
 
   struct mutable_pair_t {
-    unsigned long col;
-    unsigned long row;
+    uint64_t col;
+    uint64_t row;
   };
 
   mutable_pair_t scan_result;
   k2node_scan_points_interactively(
       root_node, &st,
-      [](unsigned long col, unsigned long row, void *rs) {
+      [](uint64_t col, uint64_t row, void *rs) {
         auto &mp = *reinterpret_cast<mutable_pair_t *>(rs);
         mp.col = col;
         mp.row = row;

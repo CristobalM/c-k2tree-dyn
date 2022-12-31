@@ -94,8 +94,8 @@ SOFTWARE.
 #endif
 
 typedef struct pair2dl {
-  unsigned long col;
-  unsigned long row;
+  uint64_t col;
+  uint64_t row;
 } pair2dl_t;
 
 // typedef struct pair2dl pair2dl_t;
@@ -103,7 +103,7 @@ typedef struct pair2dl {
 typedef enum { COLUMN_COORD = 0, ROW_COORD = 1 } coord_t;
 
 struct sip_ipoint {
-  unsigned long coord;
+  uint64_t coord;
   coord_t coord_type;
 };
 

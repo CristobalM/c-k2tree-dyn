@@ -23,14 +23,14 @@ TEST(block_small_tests, test1) {
 TEST(block_small_tests, test2) {
   // tree_depth cant be higher than 63
   BlockWrapper block_wrapper(64, 256);
-  unsigned long value = (1UL << 63UL);
+  uint64_t value = (1UL << 63UL);
   block_wrapper.insert(value, value);
-  std::set<std::pair<unsigned long, unsigned long>> data;
+  std::set<std::pair<uint64_t, uint64_t>> data;
   scan_points_interactively(
       block_wrapper.get_root(), block_wrapper.get_qs(),
-      [](unsigned long col, unsigned long row, void *rs) {
+      [](uint64_t col, uint64_t row, void *rs) {
         auto &data = *reinterpret_cast<
-            std::set<std::pair<unsigned long, unsigned long>> *>(rs);
+            std::set<std::pair<uint64_t, uint64_t>> *>(rs);
         data.insert({col, row});
       },
       &data);

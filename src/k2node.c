@@ -8,66 +8,66 @@
 struct k2_find_subtree_result {
   int exists;
   struct block *subtree_root;
-  unsigned long col;
-  unsigned long row;
-  unsigned long depth_reached;
+  uint64_t col;
+  uint64_t row;
+  uint64_t depth_reached;
   struct k2node *last_node_visited;
 };
 
 struct interactive_report_data {
   point_reporter_fun_t point_reporter;
   void *report_state;
-  unsigned long base_col;
-  unsigned long base_row;
+  uint64_t base_col;
+  uint64_t base_row;
 };
 
 /* private prototypes */
 struct k2_find_subtree_result
-k2_find_subtree(struct k2node *node, struct k2qstate *st, unsigned long col,
-                unsigned long row, unsigned long current_depth);
+k2_find_subtree(struct k2node *node, struct k2qstate *st, uint64_t col,
+                uint64_t row, uint64_t current_depth);
 int k2node_naive_scan_points_rec(struct k2node *node, struct k2qstate *st,
-                                 unsigned long current_depth,
+                                 uint64_t current_depth,
                                  struct vector_pair2dl_t *result);
 int k2node_scan_points_interactively_rec(struct k2node *node,
                                          struct k2qstate *st,
-                                         unsigned long current_depth,
+                                         uint64_t current_depth,
                                          point_reporter_fun_t point_reporter,
                                          void *report_state);
-int k2node_report_rec(struct k2node *node, unsigned long coord,
-                      int which_report, unsigned long current_depth,
+int k2node_report_rec(struct k2node *node, uint64_t coord,
+                      int which_report, uint64_t current_depth,
                       struct k2qstate *st, struct vector_pair2dl_t *result);
-int k2node_report_interactively_rec(struct k2node *node, unsigned long coord,
+int k2node_report_interactively_rec(struct k2node *node, uint64_t coord,
                                     int which_report,
-                                    unsigned long current_depth,
+                                    uint64_t current_depth,
                                     struct k2qstate *st,
                                     point_reporter_fun_t point_reporter,
                                     void *report_state);
 struct k2_find_subtree_result fill_insertion_path(struct k2node *from_node,
-                                                  unsigned long col,
-                                                  unsigned long row,
+                                                  uint64_t col,
+                                                  uint64_t row,
                                                   struct k2qstate *st,
-                                                  unsigned long current_depth);
+                                                  uint64_t current_depth);
 struct k2tree_measurement
 k2node_measure_tree_size_rec(struct k2node *input_node,
-                             unsigned long current_depth,
-                             unsigned long cut_depth);
+                             uint64_t current_depth,
+                             uint64_t cut_depth);
 
-void interactive_transform_points(unsigned long col, unsigned long row,
+void interactive_transform_points(uint64_t col, uint64_t row,
                                   void *data);
 
 int k2node_has_more_than_one_child(struct k2node *input_node, int current_depth,
                                    int cut_depth);
 
 int k2node_delete_point_rec(struct k2node *input_node, struct k2qstate *st,
-                            unsigned long col, unsigned long row,
+                            uint64_t col, uint64_t row,
                             int current_depth, int *already_not_exists,
                             int *has_children);
 
 /* private implementations */
 
 struct k2_find_subtree_result
-k2_find_subtree(struct k2node *node, struct k2qstate *st, unsigned long col,
-                unsigned long row, unsigned long current_depth) {
+k2_find_subtree(struct k2node *node, struct k2qstate *st, uint64_t col,
+                uint64_t row, uint64_t current_depth) {
   if (current_depth == st->cut_depth) {
     struct k2_find_subtree_result result;
     result.col = col;
@@ -92,15 +92,15 @@ k2_find_subtree(struct k2node *node, struct k2qstate *st, unsigned long col,
     result.subtree_root = NULL;
     return result;
   }
-  unsigned long remaining_depth = st->k2tree_depth - current_depth;
-  unsigned long half_length = 1UL << (remaining_depth - 1UL);
+  uint64_t remaining_depth = st->k2tree_depth - current_depth;
+  uint64_t half_length = 1UL << (remaining_depth - 1UL);
 
   return k2_find_subtree(next_node, st, col % half_length, row % half_length,
                          current_depth + 1);
 }
 
 int k2node_naive_scan_points_rec(struct k2node *node, struct k2qstate *st,
-                                 unsigned long current_depth,
+                                 uint64_t current_depth,
                                  struct vector_pair2dl_t *result) {
   if (current_depth == st->cut_depth) {
     struct pair2dl high_level_coordinates;
@@ -108,9 +108,9 @@ int k2node_naive_scan_points_rec(struct k2node *node, struct k2qstate *st,
     convert_morton_code_to_coordinates_select_treedepth(
         &st->mc, &high_level_coordinates, st->cut_depth);
     CHECK_ERR(naive_scan_points(node->k2subtree.block_child, &st->qs, result));
-    unsigned long base_col = high_level_coordinates.col
+    uint64_t base_col = high_level_coordinates.col
                              << (st->k2tree_depth - st->cut_depth);
-    unsigned long base_row = high_level_coordinates.row
+    uint64_t base_row = high_level_coordinates.row
                              << (st->k2tree_depth - st->cut_depth);
     for (; starting_pos < result->nof_items; starting_pos++) {
       result->data[starting_pos].col += base_col;
@@ -131,7 +131,7 @@ int k2node_naive_scan_points_rec(struct k2node *node, struct k2qstate *st,
   return SUCCESS_ECODE_K2T;
 }
 
-void interactive_transform_points(unsigned long col, unsigned long row,
+void interactive_transform_points(uint64_t col, uint64_t row,
                                   void *data) {
   struct interactive_report_data *middle_state =
       (struct interactive_report_data *)data;
@@ -142,7 +142,7 @@ void interactive_transform_points(unsigned long col, unsigned long row,
 
 int k2node_scan_points_interactively_rec(struct k2node *node,
                                          struct k2qstate *st,
-                                         unsigned long current_depth,
+                                         uint64_t current_depth,
                                          point_reporter_fun_t point_reporter,
                                          void *report_state) {
   if (current_depth == st->cut_depth) {
@@ -154,10 +154,10 @@ int k2node_scan_points_interactively_rec(struct k2node *node,
     middle_state.report_state = report_state;
     middle_state.base_col =
         high_level_coordinates.col
-        << ((unsigned long)st->k2tree_depth - (unsigned long)st->cut_depth);
+        << ((uint64_t)st->k2tree_depth - (uint64_t)st->cut_depth);
     middle_state.base_row =
         high_level_coordinates.row
-        << ((unsigned long)st->k2tree_depth - (unsigned long)st->cut_depth);
+        << ((uint64_t)st->k2tree_depth - (uint64_t)st->cut_depth);
     return scan_points_interactively(node->k2subtree.block_child, &st->qs,
                                      interactive_transform_points,
                                      &middle_state);
@@ -175,19 +175,19 @@ int k2node_scan_points_interactively_rec(struct k2node *node,
   return SUCCESS_ECODE_K2T;
 }
 
-int k2node_report_rec(struct k2node *node, unsigned long coord,
-                      int which_report, unsigned long current_depth,
+int k2node_report_rec(struct k2node *node, uint64_t coord,
+                      int which_report, uint64_t current_depth,
                       struct k2qstate *st, struct vector_pair2dl_t *result) {
 
-  unsigned long remaining_depth = st->k2tree_depth - current_depth;
+  uint64_t remaining_depth = st->k2tree_depth - current_depth;
   if (current_depth == st->cut_depth) {
     struct pair2dl high_level_coordinates;
     convert_morton_code_to_coordinates_select_treedepth(
         &st->mc, &high_level_coordinates, st->cut_depth);
     uint32_t starting_pos = result->nof_items;
-    unsigned long base_col = high_level_coordinates.col
+    uint64_t base_col = high_level_coordinates.col
                              << (st->k2tree_depth - st->cut_depth);
-    unsigned long base_row = high_level_coordinates.row
+    uint64_t base_row = high_level_coordinates.row
                              << (st->k2tree_depth - st->cut_depth);
     if (which_report == REPORT_COLUMN) {
       CHECK_ERR(
@@ -204,8 +204,8 @@ int k2node_report_rec(struct k2node *node, unsigned long coord,
     return SUCCESS_ECODE_K2T;
   }
 
-  unsigned long next_remaining_depth = remaining_depth - 1;
-  unsigned long half_level = 1 << next_remaining_depth;
+  uint64_t next_remaining_depth = remaining_depth - 1;
+  uint64_t half_level = 1 << next_remaining_depth;
 
   for (int child_pos = 0; child_pos < 4; child_pos++) {
     if (!node->k2subtree.children[child_pos] ||
@@ -221,14 +221,14 @@ int k2node_report_rec(struct k2node *node, unsigned long coord,
   return SUCCESS_ECODE_K2T;
 }
 
-int k2node_report_interactively_rec(struct k2node *node, unsigned long coord,
+int k2node_report_interactively_rec(struct k2node *node, uint64_t coord,
                                     int which_report,
-                                    unsigned long current_depth,
+                                    uint64_t current_depth,
                                     struct k2qstate *st,
                                     point_reporter_fun_t point_reporter,
                                     void *report_state) {
 
-  unsigned long remaining_depth = st->k2tree_depth - current_depth;
+  uint64_t remaining_depth = st->k2tree_depth - current_depth;
   if (current_depth == st->cut_depth) {
     struct pair2dl high_level_coordinates;
     convert_morton_code_to_coordinates_select_treedepth(
@@ -252,8 +252,8 @@ int k2node_report_interactively_rec(struct k2node *node, unsigned long coord,
     return SUCCESS_ECODE_K2T;
   }
 
-  unsigned long next_remaining_depth = remaining_depth - 1;
-  unsigned long half_level = 1 << next_remaining_depth;
+  uint64_t next_remaining_depth = remaining_depth - 1;
+  uint64_t half_level = 1 << next_remaining_depth;
 
   for (int child_pos = 0; child_pos < 4; child_pos++) {
     if (!REPORT_CONTINUE_CONDITION(coord, half_level, which_report,
@@ -270,11 +270,11 @@ int k2node_report_interactively_rec(struct k2node *node, unsigned long coord,
 }
 
 struct k2_find_subtree_result fill_insertion_path(struct k2node *from_node,
-                                                  unsigned long col,
-                                                  unsigned long row,
+                                                  uint64_t col,
+                                                  uint64_t row,
                                                   struct k2qstate *st,
-                                                  unsigned long current_depth) {
-  unsigned long remaining_depth = st->k2tree_depth - current_depth;
+                                                  uint64_t current_depth) {
+  uint64_t remaining_depth = st->k2tree_depth - current_depth;
   if (current_depth == st->cut_depth) {
     struct k2_find_subtree_result result;
     result.col = col;
@@ -297,7 +297,7 @@ struct k2_find_subtree_result fill_insertion_path(struct k2node *from_node,
 
   from_node->k2subtree.children[child_pos] = create_k2node();
 
-  unsigned long half_length = 1UL << (remaining_depth - 1UL);
+  uint64_t half_length = 1UL << (remaining_depth - 1UL);
 
   return fill_insertion_path(from_node->k2subtree.children[child_pos],
                              col % half_length, row % half_length, st,
@@ -306,8 +306,8 @@ struct k2_find_subtree_result fill_insertion_path(struct k2node *from_node,
 
 struct k2tree_measurement
 k2node_measure_tree_size_rec(struct k2node *input_node,
-                             unsigned long current_depth,
-                             unsigned long cut_depth) {
+                             uint64_t current_depth,
+                             uint64_t cut_depth) {
   if (current_depth == cut_depth) {
     if (!input_node->k2subtree.block_child) {
       struct k2tree_measurement measurement;
@@ -360,7 +360,7 @@ int k2node_has_more_than_one_child(struct k2node *input_node, int current_depth,
 }
 
 int k2node_delete_point_rec(struct k2node *input_node, struct k2qstate *st,
-                            unsigned long col, unsigned long row,
+                            uint64_t col, uint64_t row,
                             int current_depth, int *already_not_exists,
                             int *has_children) {
 
@@ -382,8 +382,8 @@ int k2node_delete_point_rec(struct k2node *input_node, struct k2qstate *st,
     return SUCCESS_ECODE_K2T;
   }
 
-  unsigned long remaining_depth = st->k2tree_depth - current_depth;
-  unsigned long half_length = 1 << (remaining_depth - 1);
+  uint64_t remaining_depth = st->k2tree_depth - current_depth;
+  uint64_t half_length = 1 << (remaining_depth - 1);
 
   uint32_t child_pos = get_code_at_morton_code(&st->mc, current_depth);
   struct k2node *next_node = input_node->k2subtree.children[child_pos];
@@ -412,8 +412,8 @@ int k2node_delete_point_rec(struct k2node *input_node, struct k2qstate *st,
 
 /* public implementations */
 
-int k2node_has_point(struct k2node *root_node, unsigned long col,
-                     unsigned long row, struct k2qstate *st, int *result) {
+int k2node_has_point(struct k2node *root_node, uint64_t col,
+                     uint64_t row, struct k2qstate *st, int *result) {
   convert_coordinates_to_morton_code(col, row, st->k2tree_depth, &st->mc);
   struct k2_find_subtree_result tr_result =
       k2_find_subtree(root_node, st, col, row, 0);
@@ -425,8 +425,8 @@ int k2node_has_point(struct k2node *root_node, unsigned long col,
                    &st->qs, result);
 }
 
-int k2node_insert_point(struct k2node *root_node, unsigned long col,
-                        unsigned long row, struct k2qstate *st,
+int k2node_insert_point(struct k2node *root_node, uint64_t col,
+                        uint64_t row, struct k2qstate *st,
                         int *already_exists) {
   convert_coordinates_to_morton_code(col, row, st->k2tree_depth, &st->mc);
   struct k2_find_subtree_result tr_result =
@@ -453,18 +453,18 @@ int k2node_scan_points_interactively(struct k2node *input_node,
                                               report_state);
 }
 
-int k2node_report_column(struct k2node *input_node, unsigned long col,
+int k2node_report_column(struct k2node *input_node, uint64_t col,
                          struct k2qstate *st, struct vector_pair2dl_t *result) {
   return k2node_report_rec(input_node, col, REPORT_COLUMN, 0, st, result);
 }
 
-int k2node_report_row(struct k2node *input_node, unsigned long row,
+int k2node_report_row(struct k2node *input_node, uint64_t row,
                       struct k2qstate *st, struct vector_pair2dl_t *result) {
   return k2node_report_rec(input_node, row, REPORT_ROW, 0, st, result);
 }
 
 int k2node_report_column_interactively(struct k2node *input_node,
-                                       unsigned long col, struct k2qstate *st,
+                                       uint64_t col, struct k2qstate *st,
                                        point_reporter_fun_t point_reporter,
                                        void *report_state) {
   return k2node_report_interactively_rec(input_node, col, REPORT_COLUMN, 0, st,
@@ -472,7 +472,7 @@ int k2node_report_column_interactively(struct k2node *input_node,
 }
 
 int k2node_report_row_interactively(struct k2node *input_node,
-                                    unsigned long row, struct k2qstate *st,
+                                    uint64_t row, struct k2qstate *st,
                                     point_reporter_fun_t point_reporter,
                                     void *report_state) {
   return k2node_report_interactively_rec(input_node, row, REPORT_ROW, 0, st,
@@ -483,8 +483,8 @@ struct k2node *create_k2node(void) {
   return k2tree_allocate_k2node();
 }
 
-int free_rec_k2node(struct k2node *input_node, unsigned long current_depth,
-                    unsigned long cut_depth) {
+int free_rec_k2node(struct k2node *input_node, uint64_t current_depth,
+                    uint64_t cut_depth) {
   if (current_depth == cut_depth) {
     free_rec_block(input_node->k2subtree.block_child);
   } else {
@@ -500,7 +500,7 @@ int free_rec_k2node(struct k2node *input_node, unsigned long current_depth,
 }
 
 struct k2tree_measurement k2node_measure_tree_size(struct k2node *input_node,
-                                                   unsigned long cut_depth) {
+                                                   uint64_t cut_depth) {
   return k2node_measure_tree_size_rec(input_node, 0, cut_depth);
 }
 
@@ -523,7 +523,7 @@ int clean_k2qstate(struct k2qstate *st) {
 struct intermediate_reporter_data {
   coord_reporter_fun_t rep_fun;
   void *report_state;
-  unsigned long base_coord;
+  uint64_t base_coord;
 };
 
 int debug_validate_k2node(struct k2node *input_node, struct k2qstate *st,
@@ -620,7 +620,7 @@ int k2node_naive_scan_points_lazy_next(
   while (!empty_k2node_lazy_naive_state_stack(&lazy_handler->states_stack)) {
     k2node_lazy_naive_state current_state =
         pop_k2node_lazy_naive_state_stack(&lazy_handler->states_stack);
-    unsigned long current_depth = current_state.current_depth;
+    uint64_t current_depth = current_state.current_depth;
     struct k2node *node = current_state.input_node;
 
     if (current_depth == st->cut_depth) {
@@ -785,8 +785,8 @@ int k2node_report_band_next(
     k2node_lazy_report_band_state_t current_state =
         pop_k2node_lazy_report_band_state_t_stack(&lazy_handler->stack);
 
-    unsigned long current_depth = current_state.current_depth;
-    unsigned long remaining_depth = st->k2tree_depth - current_depth;
+    uint64_t current_depth = current_state.current_depth;
+    uint64_t remaining_depth = st->k2tree_depth - current_depth;
     struct k2node *node = current_state.input_node;
 
     if (current_depth == st->cut_depth) {
@@ -798,10 +798,10 @@ int k2node_report_band_next(
 
         lazy_handler->base_col =
             high_level_coordinates.col
-            << (unsigned long)(st->k2tree_depth - st->cut_depth);
+            << (uint64_t)(st->k2tree_depth - st->cut_depth);
         lazy_handler->base_row =
             high_level_coordinates.row
-            << (unsigned long)(st->k2tree_depth - st->cut_depth);
+            << (uint64_t)(st->k2tree_depth - st->cut_depth);
 
         lazy_handler->sub_handler.has_next = FALSE;
         lazy_handler->sub_handler.which_report = lazy_handler->which_report;
@@ -843,8 +843,8 @@ int k2node_report_band_next(
       continue;
     }
 
-    unsigned long next_remaining_depth = remaining_depth - 1UL;
-    unsigned long half_level = 1UL << next_remaining_depth;
+    uint64_t next_remaining_depth = remaining_depth - 1UL;
+    uint64_t half_level = 1UL << next_remaining_depth;
 
     for (uint32_t child_pos = current_state.last_iteration; child_pos < 4;
          child_pos++) {
@@ -883,8 +883,8 @@ int k2node_report_band_has_next(
   return SUCCESS_ECODE_K2T;
 }
 
-int k2node_delete_point(struct k2node *input_node, unsigned long col,
-                        unsigned long row, struct k2qstate *st,
+int k2node_delete_point(struct k2node *input_node, uint64_t col,
+                        uint64_t row, struct k2qstate *st,
                         int *already_not_exists) {
 
   *already_not_exists = FALSE;

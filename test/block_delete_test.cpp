@@ -59,7 +59,7 @@ TEST(block_delete_test, simple_delete) {
   struct queries_state qs {};
   init_queries_state(&qs, tree_depth, 8, root_block);
 
-  std::vector<std::pair<unsigned long, unsigned long>> data = {
+  std::vector<std::pair<uint64_t, uint64_t>> data = {
       {1, 1},   {8, 8},   {4, 14},  {14, 14}, {14, 17},
       {14, 18}, {21, 18}, {21, 27}, {25, 27},
   };
@@ -178,10 +178,10 @@ TEST(block_delete_test, delete_full_2) {
 
 TEST(block_delete_test, ignore_non_existent_test_1) {
   int tree_depth = 3;
-  unsigned long side = 1u << tree_depth;
+  uint64_t side = 1u << tree_depth;
   BlockWrapper b(tree_depth, 16);
-  for (unsigned long i = 0; i < side; i++)
-    for (unsigned long j = 0; j < side; j++) {
+  for (uint64_t i = 0; i < side; i++)
+    for (uint64_t j = 0; j < side; j++) {
       b.insert(i, j);
     }
 
@@ -194,8 +194,8 @@ TEST(block_delete_test, ignore_non_existent_test_1) {
     }
     prev_rep = curr_rep;
 
-    for (unsigned long i = 0; i < side; i++)
-      for (unsigned long j = 0; j < side; j++) {
+    for (uint64_t i = 0; i < side; i++)
+      for (uint64_t j = 0; j < side; j++) {
         ASSERT_TRUE((i == 5 && j == 5) || b.has(i, j))
             << "(" << k << ") failed at i = " << i << ", j = " << j;
       }
@@ -204,22 +204,22 @@ TEST(block_delete_test, ignore_non_existent_test_1) {
 
 TEST(block_delete_test, problematic_1) {
   int tree_depth = 3;
-  unsigned long side = 1u << tree_depth;
-  unsigned long matrix_size = side * side;
+  uint64_t side = 1u << tree_depth;
+  uint64_t matrix_size = side * side;
   BlockWrapper b(tree_depth, 16);
 
-  unsigned long ins_sz = matrix_size / 2 + 8;
-  unsigned long er_sz = ins_sz - 3;
+  uint64_t ins_sz = matrix_size / 2 + 8;
+  uint64_t er_sz = ins_sz - 3;
 
-  for (unsigned long i = 0; i < ins_sz; i++) {
-    unsigned long col = i / side;
-    unsigned long row = i % side;
+  for (uint64_t i = 0; i < ins_sz; i++) {
+    uint64_t col = i / side;
+    uint64_t row = i % side;
     b.insert(col, row);
   }
 
-  for (unsigned long i = 0; i < er_sz; i++) {
-    unsigned long col = i / side;
-    unsigned long row = i % side;
+  for (uint64_t i = 0; i < er_sz; i++) {
+    uint64_t col = i / side;
+    uint64_t row = i % side;
 
     b.erase(col, row);
     bool exists = b.has(col, row);
@@ -229,9 +229,9 @@ TEST(block_delete_test, problematic_1) {
                          << " but should have been deleted... (1)";
   }
 
-  for (unsigned long i = 0; i < er_sz; i++) {
-    unsigned long col = i / side;
-    unsigned long row = i % side;
+  for (uint64_t i = 0; i < er_sz; i++) {
+    uint64_t col = i / side;
+    uint64_t row = i % side;
     bool exists = b.has(col, row);
 
     ASSERT_FALSE(exists) << "(depth = " << tree_depth << ")"
@@ -241,10 +241,10 @@ TEST(block_delete_test, problematic_1) {
 }
 
 TEST(block_delete_test, random_test_1) {
-  auto gen_col = [](const std::vector<unsigned long> &ids, size_t i) {
+  auto gen_col = [](const std::vector<uint64_t> &ids, size_t i) {
     return ids[i];
   };
-  auto gen_row = [](const std::vector<unsigned long> &ids, size_t i) {
+  auto gen_row = [](const std::vector<uint64_t> &ids, size_t i) {
     return (ids[i] + ids.size() * 33) % ids.size();
   };
 
@@ -254,31 +254,31 @@ TEST(block_delete_test, random_test_1) {
   for (uint32_t treedepth = 3; treedepth <= 6; treedepth++) {
     for (int seed = 0; seed < 1000; seed++) {
       srand(seed);
-      unsigned long side = 1u << treedepth;
-      unsigned long matrix_size = side * side;
+      uint64_t side = 1u << treedepth;
+      uint64_t matrix_size = side * side;
       BlockWrapper b(treedepth, 16);
 
-      std::vector<unsigned long> ids(matrix_size, 0);
+      std::vector<uint64_t> ids(matrix_size, 0);
 
-      for (unsigned long i = 0; i < matrix_size; i++)
+      for (uint64_t i = 0; i < matrix_size; i++)
         ids[i] = i;
 
       shuffle(ids.begin(), ids.end(), g);
 
-      for (unsigned long i = 0; i < matrix_size; i++) {
-        unsigned long col = gen_col(ids, i);
-        unsigned long row = gen_row(ids, i);
+      for (uint64_t i = 0; i < matrix_size; i++) {
+        uint64_t col = gen_col(ids, i);
+        uint64_t row = gen_row(ids, i);
         b.insert(col, row);
       }
 
-      for (unsigned long i = 0; i < matrix_size; i++) {
-        unsigned long col = gen_col(ids, i);
-        unsigned long row = gen_row(ids, i);
+      for (uint64_t i = 0; i < matrix_size; i++) {
+        uint64_t col = gen_col(ids, i);
+        uint64_t row = gen_row(ids, i);
         b.erase(col, row);
       }
-      for (unsigned long i = 0; i < matrix_size; i++) {
-        unsigned long col = gen_col(ids, i);
-        unsigned long row = gen_row(ids, i);
+      for (uint64_t i = 0; i < matrix_size; i++) {
+        uint64_t col = gen_col(ids, i);
+        uint64_t row = gen_row(ids, i);
         bool exists = b.has(col, row);
         if (exists) {
         }
@@ -294,13 +294,13 @@ TEST(block_delete_test, random_test_1) {
 
 TEST(block_delete_test, diagonal_test_1) {
   for (uint32_t treedepth = 3; treedepth <= 17; treedepth++) {
-    unsigned long side = std::min(
-        (unsigned long)(1UL << (unsigned long)treedepth), (unsigned long)1e9);
+    uint64_t side = std::min(
+        (uint64_t)(1UL << (uint64_t)treedepth), (uint64_t)1e9);
     BlockWrapper b(treedepth, treedepth * 2);
-    for (unsigned long i = 0; i < side; i++) {
+    for (uint64_t i = 0; i < side; i++) {
       b.insert(i, i);
     }
-    for (unsigned long i = 0; i < side; i++) {
+    for (uint64_t i = 0; i < side; i++) {
       b.erase(i, i);
       if (treedepth < 17) {
         ASSERT_EQ(debug_validate_block_rec(b.b), 0);
@@ -311,21 +311,21 @@ TEST(block_delete_test, diagonal_test_1) {
 }
 
 TEST(block_delete_test, can_erase_without_altering_others_1) {
-  unsigned long treedepth = 4;
-  unsigned long side = (unsigned long)(1UL << treedepth);
-  for (unsigned long i = 0; i < side; i++) {
-    for (unsigned long j = 0; j < side; j++) {
+  uint64_t treedepth = 4;
+  uint64_t side = (uint64_t)(1UL << treedepth);
+  for (uint64_t i = 0; i < side; i++) {
+    for (uint64_t j = 0; j < side; j++) {
       BlockWrapper bv(treedepth);
 
-      for (unsigned long k = 0; k < side; k++) {
-        for (unsigned long l = 0; l < side; l++) {
+      for (uint64_t k = 0; k < side; k++) {
+        for (uint64_t l = 0; l < side; l++) {
           bv.insert(k, l);
         }
       }
       for (int u = 0; u < 3; u++)
         bv.erase(i, j);
-      for (unsigned long k = 0; k < side; k++) {
-        for (unsigned long l = 0; l < side; l++) {
+      for (uint64_t k = 0; k < side; k++) {
+        for (uint64_t l = 0; l < side; l++) {
           if (k == i && l == j)
             continue;
           ASSERT_TRUE(bv.has(k, l))

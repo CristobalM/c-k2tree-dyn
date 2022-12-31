@@ -26,6 +26,7 @@ SOFTWARE.
 #include <iostream>
 #include <utility>
 #include <vector>
+#include <inttypes.h>
 
 extern "C" {
 #include <block.h>
@@ -36,7 +37,7 @@ extern "C" {
 }
 
 TEST(k2node_tests, problematic_input_seq_1_test) {
-  std::vector<std::pair<unsigned long, unsigned long>> pairs = {
+  std::vector<std::pair<uint64_t, uint64_t>> pairs = {
       {2435942, 1822678}, {2462421, 1920115}, {2366760, 1595921},
       {2117488, 1141805}, {2113889, 1131953}, {2385134, 1624246},
       {2408969, 1678218}, {2335783, 1541134}, {2449482, 1876875},
@@ -85,8 +86,8 @@ TEST(k2node_tests, can_traverse_column) {
 
   int already_exists;
 
-  unsigned long col_choice = 123123;
-  for (unsigned long row = 123123; row < 123123 + 1000; row++) {
+  uint64_t col_choice = 123123;
+  for (uint64_t row = 123123; row < 123123 + 1000; row++) {
     k2node_insert_point(root_node, col_choice, row, &st, &already_exists);
   }
 
@@ -95,7 +96,7 @@ TEST(k2node_tests, can_traverse_column) {
   k2node_report_column(root_node, col_choice, &st, &result);
 
   ASSERT_EQ(result.nof_items, 1000);
-  for (unsigned long i = 0; i < 1000; i++) {
+  for (uint64_t i = 0; i < 1000; i++) {
     ASSERT_EQ(result.data[i].row, 123123 + i) << "Failed at i=" << i;
   }
 
@@ -106,7 +107,7 @@ TEST(k2node_tests, can_traverse_column) {
   clean_k2qstate(&st);
 }
 
-void can_traverse_column_interactively_fun(unsigned long col, unsigned long row,
+void can_traverse_column_interactively_fun(uint64_t col, uint64_t row,
                                            void *report_state) {
   struct vector_pair2dl_t *result = (struct vector_pair2dl_t *)report_state;
   struct pair2dl pair;
@@ -126,8 +127,8 @@ TEST(k2node_tests, can_traverse_column_interactively) {
 
   int already_exists;
 
-  unsigned long col_choice = 123123;
-  for (unsigned long row = 123123; row < 123123 + 1000; row++) {
+  uint64_t col_choice = 123123;
+  for (uint64_t row = 123123; row < 123123 + 1000; row++) {
     k2node_insert_point(root_node, col_choice, row, &st, &already_exists);
   }
 
@@ -138,7 +139,7 @@ TEST(k2node_tests, can_traverse_column_interactively) {
                                      &result);
 
   ASSERT_EQ(result.nof_items, 1000);
-  for (unsigned long i = 0; i < 1000; i++) {
+  for (uint64_t i = 0; i < 1000; i++) {
     ASSERT_EQ(result.data[i].row, 123123 + i) << "Failed at i=" << i;
   }
 
@@ -157,14 +158,14 @@ TEST(k2node_tests, can_insert_1) {
       struct k2qstate st;
       init_k2qstate(&st, treedepth, 255, cut_depth);
 
-      unsigned long side = 1 << treedepth;
+      uint64_t side = 1 << treedepth;
 
       int already_exists;
-      for (unsigned long col = 0; col < side; col++) {
-        for (unsigned long row = 0; row < side; row++) {
+      for (uint64_t col = 0; col < side; col++) {
+        for (uint64_t row = 0; row < side; row++) {
           k2node_insert_point(root_node, col, row, &st, &already_exists);
-          for (unsigned long col_check = 0; col_check < col; col_check++) {
-            for (unsigned long row_check = 0; row_check < row; row_check++) {
+          for (uint64_t col_check = 0; col_check < col; col_check++) {
+            for (uint64_t row_check = 0; row_check < row; row_check++) {
               int has_the_point;
               k2node_has_point(root_node, col_check, row_check, &st,
                                &has_the_point);
@@ -174,7 +175,7 @@ TEST(k2node_tests, can_insert_1) {
                   << col_check << ", " << row_check << ")";
             }
           }
-          for (unsigned long row_check = 0; row_check <= row; row_check++) {
+          for (uint64_t row_check = 0; row_check <= row; row_check++) {
             int has_the_point;
             k2node_has_point(root_node, col, row_check, &st, &has_the_point);
             ASSERT_TRUE(has_the_point)
@@ -183,9 +184,9 @@ TEST(k2node_tests, can_insert_1) {
                 << row_check << ")";
           }
 
-          for (unsigned long col_check = col + 1; col_check < side;
+          for (uint64_t col_check = col + 1; col_check < side;
                col_check++) {
-            for (unsigned long row_check = row + 1; row_check < side;
+            for (uint64_t row_check = row + 1; row_check < side;
                  row_check++) {
               int has_the_point;
               k2node_has_point(root_node, col_check, row_check, &st,
@@ -196,7 +197,7 @@ TEST(k2node_tests, can_insert_1) {
                   << col_check << ", " << row_check << ")";
             }
           }
-          for (unsigned long row_check = row + 1; row_check < side;
+          for (uint64_t row_check = row + 1; row_check < side;
                row_check++) {
             int has_the_point;
             k2node_has_point(root_node, col, row_check, &st, &has_the_point);
@@ -208,7 +209,7 @@ TEST(k2node_tests, can_insert_1) {
               k2node_naive_scan_points(root_node, &st, &result);
 
               for (int i = 0; i < result.nof_items; i++) {
-                printf("(%lu, %lu) ", result.data[i].col, result.data[i].row);
+                printf("(%" PRIu64 ", %" PRIu64 ") ", result.data[i].col, result.data[i].row);
               }
               printf("\n");
 
@@ -241,11 +242,11 @@ TEST(k2node_tests, report_band_lazy_test_1) {
 
   int already_exists;
 
-  std::set<std::pair<unsigned long, unsigned long>> init_elements = {
+  std::set<std::pair<uint64_t, uint64_t>> init_elements = {
       {0, 0},  {3, 3}, {15, 3}, {3, 15}, {30, 31}, {31, 8},
       {3, 30}, {3, 2}, {3, 29}, {8, 15}, {9, 15},  {15, 15}};
 
-  std::set<unsigned long> expected_values = {3, 8, 9, 15};
+  std::set<uint64_t> expected_values = {3, 8, 9, 15};
 
   for (auto &p : init_elements)
     k2node_insert_point(root_node, p.first, p.second, &st, &already_exists);
@@ -253,8 +254,8 @@ TEST(k2node_tests, report_band_lazy_test_1) {
   k2node_lazy_handler_report_band_t lh;
   k2node_report_row_lazy_init(&lh, root_node, &st, 15);
 
-  std::set<unsigned long> values;
-  std::set<unsigned long> values2;
+  std::set<uint64_t> values;
+  std::set<uint64_t> values2;
 
   int has_next = TRUE;
   for (;;) {
@@ -296,7 +297,7 @@ TEST(k2node_tests, report_all_lazy_test_1) {
 
   int already_exists;
 
-  std::set<std::pair<unsigned long, unsigned long>> init_elements = {
+  std::set<std::pair<uint64_t, uint64_t>> init_elements = {
       {0, 0},  {3, 3}, {15, 3}, {3, 15}, {30, 31}, {31, 8},
       {3, 30}, {3, 2}, {3, 29}, {8, 15}, {9, 15},  {15, 15}};
 
@@ -307,8 +308,8 @@ TEST(k2node_tests, report_all_lazy_test_1) {
 
   k2node_naive_scan_points_lazy_init(root_node, &st, &lh);
 
-  std::set<std::pair<unsigned long, unsigned long>> values;
-  std::set<std::pair<unsigned long, unsigned long>> values2;
+  std::set<std::pair<uint64_t, uint64_t>> values;
+  std::set<std::pair<uint64_t, uint64_t>> values2;
 
   int has_next = TRUE;
   for (;;) {
@@ -338,7 +339,7 @@ TEST(k2node_tests, report_all_lazy_test_1) {
   ASSERT_EQ(values2, init_elements);
 
   for (int i = 0; i < (int)init_elements.size(); i++) {
-    std::set<std::pair<unsigned long, unsigned long>> values3;
+    std::set<std::pair<uint64_t, uint64_t>> values3;
     for (int j = 0; j < i; j++) {
       k2node_naive_scan_points_lazy_has_next(&lh, &has_next);
       if (!has_next)

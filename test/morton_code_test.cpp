@@ -43,8 +43,8 @@ TEST(test_morton_code, test_convert_back_1) {
   add_element_morton_code(&mc, 1, 1);
   add_element_morton_code(&mc, 2, 1);
 
-  unsigned long col_expected = 0;
-  unsigned long row_expected = 7;
+  uint64_t col_expected = 0;
+  uint64_t row_expected = 7;
 
   struct pair2dl result;
 

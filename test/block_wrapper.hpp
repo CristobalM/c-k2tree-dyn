@@ -73,21 +73,21 @@ public:
     return &qs;
   }
 
-  void insert(unsigned long col, unsigned long row) {
+  void insert(uint64_t col, uint64_t row) {
     int already_exists;
     int err_check = insert_point(b, col, row, &qs, &already_exists);
     if (err_check)
       throw runtime_error("CANT INSERT, ERROR CODE= " + to_string(err_check));
   }
 
-  void erase(unsigned long col, unsigned long row) {
+  void erase(uint64_t col, uint64_t row) {
     int already_not_exists;
     int err_check = delete_point(b, col, row, &qs, &already_not_exists);
     if (err_check)
       throw runtime_error("CANT DELETE, ERROR CODE= " + to_string(err_check));
   }
 
-  bool has(unsigned long col, unsigned long row) {
+  bool has(uint64_t col, uint64_t row) {
     int result;
     has_point(b, col, row, &qs, &result);
     return result == 1;

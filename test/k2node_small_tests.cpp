@@ -29,7 +29,7 @@ TEST(k2node_small_tests, test1) {
 
   k2node_scan_points_interactively(
       root_node, &st,
-      [](unsigned long col, unsigned long row, void *rs) {
+      [](uint64_t col, uint64_t row, void *rs) {
         auto &rp = *reinterpret_cast<struct pair2dl *>(rs);
         rp.col = col;
         rp.row = row;

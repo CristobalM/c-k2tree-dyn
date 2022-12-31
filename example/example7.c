@@ -3,6 +3,7 @@
 #include <queries_state.h>
 #include <stdio.h>
 #include <vectors.h>
+#include <inttypes.h>
 
 int sort_fun(const void *lhs, const void *rhs);
 
@@ -17,9 +18,9 @@ int main(void) {
   init_k2qstate(&st, treedepth, 255, cut_depth);
 
   int point_exists;
-  unsigned long side = 1 << treedepth;
-  for (unsigned long col = 0; col < side; col++) {
-    for (unsigned long row = 0; row < side; row++) {
+  uint64_t side = 1 << treedepth;
+  for (uint64_t col = 0; col < side; col++) {
+    for (uint64_t row = 0; row < side; row++) {
       k2node_insert_point(root_node, col, row, &st, &point_exists);
     }
   }
@@ -45,7 +46,7 @@ int main(void) {
   for (int i = 0; i < result.nof_items; i++) {
     if (i > 0 && result.data[i].col > result.data[i - 1].col)
       printf("\n");
-    printf("(%lu, %lu) ", result.data[i].col, result.data[i].row);
+    printf("(%" PRIu64  ", %" PRIu64 ") ", result.data[i].col, result.data[i].row);
   }
   printf("\n");
 

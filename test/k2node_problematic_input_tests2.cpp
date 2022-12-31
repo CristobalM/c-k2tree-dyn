@@ -6,7 +6,7 @@
 extern "C" {
 #include <k2node.h>
 }
-using vp_t = std::vector<std::pair<unsigned long, unsigned long>>;
+using vp_t = std::vector<std::pair<uint64_t, uint64_t>>;
 
 TEST(k2node_problematic_input_tests2, full_scan_test) {
 
@@ -17,8 +17,8 @@ TEST(k2node_problematic_input_tests2, full_scan_test) {
   TREE_DEPTH_T cutdepth = 10;
   init_k2qstate(&st, treedepth, 256, cutdepth);
 
-  unsigned long col = 710230858;
-  unsigned long row = 4951110;
+  uint64_t col = 710230858;
+  uint64_t row = 4951110;
 
   int already_exists;
   k2node_insert_point(root_node, col, row, &st, &already_exists);
@@ -26,7 +26,7 @@ TEST(k2node_problematic_input_tests2, full_scan_test) {
   struct k2node_lazy_handler_naive_scan_t lh;
   k2node_naive_scan_points_lazy_init(root_node, &st, &lh);
 
-  std::vector<std::pair<unsigned long, unsigned long>> results_lazy;
+  std::vector<std::pair<uint64_t, uint64_t>> results_lazy;
   for (;;) {
     int has_next;
     k2node_naive_scan_points_lazy_has_next(&lh, &has_next);
@@ -57,8 +57,8 @@ TEST(k2node_problematic_input_tests2, band_row_scan) {
   TREE_DEPTH_T cutdepth = 10;
   init_k2qstate(&st, treedepth, 256, cutdepth);
 
-  unsigned long col = 710230858;
-  unsigned long row = 4951110;
+  uint64_t col = 710230858;
+  uint64_t row = 4951110;
 
   int already_exists;
   k2node_insert_point(root_node, col, row, &st, &already_exists);
@@ -66,7 +66,7 @@ TEST(k2node_problematic_input_tests2, band_row_scan) {
   struct k2node_lazy_handler_report_band_t lh;
   k2node_report_row_lazy_init(&lh, root_node, &st, row);
 
-  std::vector<unsigned long> results_lazy;
+  std::vector<uint64_t> results_lazy;
   for (;;) {
     int has_next;
     k2node_report_band_has_next(&lh, &has_next);
