@@ -34,8 +34,8 @@ extern "C" {
 #include <iostream>
 #include <vector>
 
-bool has_pair(struct vector_pair2dl_t *v, unsigned long col,
-              unsigned long row) {
+bool has_pair(struct vector_pair2dl_t *v, uint64_t col,
+              uint64_t row) {
   for (int i = 0; i < v->nof_items; i++) {
     struct pair2dl pair = v->data[i];
     if (col == pair.col && row == pair.row) {
@@ -52,7 +52,7 @@ void print_vector(struct vector_pair2dl_t *v) {
   }
 }
 
-void interactive_report_row(unsigned long column, unsigned long row,
+void interactive_report_row(uint64_t column, uint64_t row,
                             void *report_state) {
   struct vector_pair2dl_t *v = (struct vector_pair2dl_t *)report_state;
   struct pair2dl pair;
@@ -62,7 +62,7 @@ void interactive_report_row(unsigned long column, unsigned long row,
   std::cout << "found pair (" << column << ", " << row << ")" << std::endl;
 }
 
-void interactive_print_all(unsigned long column, unsigned long row, void *) {
+void interactive_print_all(uint64_t column, uint64_t row, void *) {
   std::cout << "(" << column << ", " << row << ")" << std::endl;
 }
 

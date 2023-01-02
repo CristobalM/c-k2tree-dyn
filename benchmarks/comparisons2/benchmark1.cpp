@@ -15,7 +15,7 @@ extern "C" {
 
 static void benchmark1(int size) {
 
-  static constexpr unsigned long tree_depth = 32;
+  static constexpr uint64_t tree_depth = 32;
 
   struct block *root_block = create_block();
 

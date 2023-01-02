@@ -25,6 +25,7 @@ SOFTWARE.
 #include <queries_state.h>
 
 #include <stdio.h>
+#include <inttypes.h>
 
 int main(void) {
 
@@ -35,14 +36,14 @@ int main(void) {
 
   FILE *fp = fopen("../test/points_output.txt", "r");
 
-  unsigned long col, row;
+  uint64_t col, row;
 
   int point_exists;
-  while (fscanf(fp, "%lu %lu", &col, &row) == 2) {
+  while (fscanf(fp, "%" PRIu64 " %" PRIu64, &col, &row) == 2) {
     insert_point(root_block, col, row, &qs, &point_exists);
     int has_it;
     has_point(root_block, col, row, &qs, &has_it);
-    printf("Has point?(%lu, %lu): %s\n", col, row, has_it ? "YES" : "NO");
+    printf("Has point?(%" PRIu64 ", %" PRIu64 "): %s\n", col, row, has_it ? "YES" : "NO");
   }
 
   fclose(fp);

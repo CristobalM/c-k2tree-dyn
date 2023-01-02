@@ -40,26 +40,26 @@ std::mt19937 rng(123321);
 struct BenchmarkResult {
   int treedepth;
   int node_count;
-  unsigned long points_count;
-  unsigned long size_bytes;
-  unsigned long bytes_ptrs;
-  unsigned long bytes_topologies;
-  unsigned long total_microseconds_inserting;
-  unsigned long inserted_points;
+  uint64_t points_count;
+  uint64_t size_bytes;
+  uint64_t bytes_ptrs;
+  uint64_t bytes_topologies;
+  uint64_t total_microseconds_inserting;
+  uint64_t inserted_points;
 };
 
 BenchmarkResult space_benchmark_random_insertion_by_depth_and_node_count(
     TREE_DEPTH_T treedepth, MAX_NODE_COUNT_T node_count,
-    unsigned long points_count, std::vector<unsigned long> &cols,
-    std::vector<unsigned long> &rows);
+    uint64_t points_count, std::vector<uint64_t> &cols,
+    std::vector<uint64_t> &rows);
 
 int main(void) {
 
-  unsigned long points_count = 1 << 25;
-  unsigned long treedepth = 30;
-  unsigned long side = 1 << treedepth;
-  unsigned long side_count =
-      std::min((unsigned long)std::sqrt(points_count), side);
+  uint64_t points_count = 1 << 25;
+  uint64_t treedepth = 30;
+  uint64_t side = 1 << treedepth;
+  uint64_t side_count =
+      std::min((uint64_t)std::sqrt(points_count), side);
 
   auto random_seq_1 = fisher_yates(side_count, side);
   auto random_seq_2 = fisher_yates(side_count, side);
@@ -93,15 +93,15 @@ int main(void) {
 
 BenchmarkResult space_benchmark_random_insertion_by_depth_and_node_count(
     TREE_DEPTH_T treedepth, MAX_NODE_COUNT_T node_count,
-    unsigned long points_count, std::vector<unsigned long> &cols,
-    std::vector<unsigned long> &rows) {
+    uint64_t points_count, std::vector<uint64_t> &cols,
+    std::vector<uint64_t> &rows) {
   struct block *root_block = create_block();
 
   struct queries_state qs;
   init_queries_state(&qs, treedepth, node_count, root_block);
 
   auto start = std::chrono::high_resolution_clock::now();
-  unsigned long inserted_points = 0;
+  uint64_t inserted_points = 0;
   int point_exists;
   for (size_t i = 0; i < cols.size(); i++) {
     if (i * rows.size() > points_count)
@@ -129,6 +129,6 @@ BenchmarkResult space_benchmark_random_insertion_by_depth_and_node_count(
           measurements.total_blocks *
               (sizeof(uint32_t) + sizeof(struct block *)),
           measurements.bytes_topology,
-          (unsigned long)duration.count(),
+          (uint64_t)duration.count(),
           inserted_points};
 }

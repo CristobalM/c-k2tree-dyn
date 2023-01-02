@@ -41,13 +41,13 @@ int main() {
     int seed = 0;
     uint32_t treedepth = 5;
     srand(seed);
-    unsigned long side = 1u << treedepth;
-    unsigned long matrix_size = side * side;
+    uint64_t side = 1u << treedepth;
+    uint64_t matrix_size = side * side;
     BlockWrapper b(treedepth, 16);
 
-    std::vector<unsigned long> indexes(matrix_size, 0);
+    std::vector<uint64_t> indexes(matrix_size, 0);
 
-    for (unsigned long i = 0; i < matrix_size; i++)
+    for (uint64_t i = 0; i < matrix_size; i++)
       indexes[i] = i;
 
     std::random_device rd;
@@ -55,9 +55,9 @@ int main() {
 
     shuffle(indexes.begin(), indexes.end(), g);
 
-    for (unsigned long i = 0; i < matrix_size; i++) {
-      unsigned long col = i / side;
-      unsigned long row = i % side;
+    for (uint64_t i = 0; i < matrix_size; i++) {
+      uint64_t col = i / side;
+      uint64_t row = i % side;
       b.insert(col, row);
     }
   }

@@ -21,10 +21,12 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-#include <block.h>
-#include <queries_state.h>
 
 #include <stdio.h>
+#include <inttypes.h>
+
+#include <block.h>
+#include <queries_state.h>
 
 #include "definitions.h"
 
@@ -43,14 +45,14 @@ int main(void) {
   int qty = sizeof(array_pairs) / sizeof(struct pair2dl);
   int point_exists;
   for (int i = 0; i < qty; i++) {
-    printf("inserting %lu, %lu\n", array_pairs[i].col, array_pairs[i].row);
+    printf("inserting %" PRIu64 ", %" PRIu64 "\n", array_pairs[i].col, array_pairs[i].row);
     insert_point(root_block, array_pairs[i].col, array_pairs[i].row, &qs,
                  &point_exists);
     int does_have_point;
     has_point(root_block, array_pairs[i].col, array_pairs[i].row, &qs,
               &does_have_point);
     if (!does_have_point) {
-      printf("doesn't have point (%lu, %lu)\n", array_pairs[i].col,
+      printf("doesn't have point (%" PRIu64 ", %" PRIu64 ")\n", array_pairs[i].col,
              array_pairs[i].row);
       goto clean_up;
     }
@@ -67,7 +69,7 @@ int main(void) {
   printf("scanned points:\n");
   for (int i = 0; i < result.nof_items; i++) {
     struct pair2dl current = result.data[i];
-    printf("element %d = (%lu, %lu)\n", i, current.col, current.row);
+    printf("element %d = (%" PRIu64 ", %" PRIu64 ")\n", i, current.col, current.row);
   }
 
   vector_pair2dl_t__free_vector(&result);

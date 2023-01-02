@@ -23,16 +23,16 @@ TEST(lazy_scan_test, test_full_scan_1) {
   uint32_t treedepth = 30;
   BlockWrapper b(treedepth, 64);
 
-  std::vector<std::pair<unsigned long, unsigned long>> expected_results;
+  std::vector<std::pair<uint64_t, uint64_t>> expected_results;
 
-  for (unsigned long i = 0; i < 10000; i++) {
+  for (uint64_t i = 0; i < 10000; i++) {
     b.insert(i, i);
     expected_results.emplace_back(i, i);
   }
   struct lazy_handler_naive_scan_t lh;
   naive_scan_points_lazy_init(b.get_root(), b.get_qs(), &lh);
 
-  std::vector<std::pair<unsigned long, unsigned long>> results_lazy;
+  std::vector<std::pair<uint64_t, uint64_t>> results_lazy;
   for (;;) {
     int has_next;
     naive_scan_points_lazy_has_next(&lh, &has_next);
@@ -56,16 +56,16 @@ TEST(lazy_scan_test, test_band_1) {
   uint32_t treedepth = 30;
   BlockWrapper b(treedepth, 64);
 
-  std::vector<unsigned long> expected_results;
+  std::vector<uint64_t> expected_results;
 
-  for (unsigned long i = 0; i < 10000; i++) {
+  for (uint64_t i = 0; i < 10000; i++) {
     b.insert(129, i);
     expected_results.push_back(i);
   }
   struct lazy_handler_report_band_t lh;
   report_column_lazy_init(&lh, b.get_root(), b.get_qs(), 129);
 
-  std::vector<unsigned long> results_lazy;
+  std::vector<uint64_t> results_lazy;
   for (;;) {
     int has_next;
     report_band_has_next(&lh, &has_next);
@@ -90,19 +90,19 @@ TEST(lazy_scan_test, test_band_2) {
     uint32_t treedepth = 30;
     BlockWrapper b(treedepth, 64);
 
-    std::vector<unsigned long> expected_results;
-    std::vector<unsigned long> shuffling_coords;
+    std::vector<uint64_t> expected_results;
+    std::vector<uint64_t> shuffling_coords;
 
-    for (unsigned long i = 0; i < static_cast<unsigned long>(1e5); i++) {
+    for (uint64_t i = 0; i < static_cast<uint64_t>(1e5); i++) {
       shuffling_coords.push_back(i);
     }
     srand(seed);
     std::shuffle(shuffling_coords.begin(), shuffling_coords.end(),
                  std::mt19937(std::random_device()()));
 
-    std::vector<unsigned long> selected_coords(
+    std::vector<uint64_t> selected_coords(
         shuffling_coords.begin(),
-        shuffling_coords.begin() + static_cast<unsigned long>(1e3));
+        shuffling_coords.begin() + static_cast<uint64_t>(1e3));
 
     const auto col_value = shuffling_coords.back();
 
@@ -113,7 +113,7 @@ TEST(lazy_scan_test, test_band_2) {
     struct lazy_handler_report_band_t lh;
     report_column_lazy_init(&lh, b.get_root(), b.get_qs(), col_value);
 
-    std::vector<unsigned long> results_lazy;
+    std::vector<uint64_t> results_lazy;
     for (;;) {
       int has_next;
       report_band_has_next(&lh, &has_next);
@@ -143,10 +143,10 @@ TEST(lazy_scan_test, test_k2node_full_scan_1) {
   struct k2qstate st;
   init_k2qstate(&st, treedepth, 255, cut_depth);
 
-  std::vector<std::pair<unsigned long, unsigned long>> expected_results;
+  std::vector<std::pair<uint64_t, uint64_t>> expected_results;
 
   int already_exists;
-  for (unsigned long i = 0; i < 10000; i++) {
+  for (uint64_t i = 0; i < 10000; i++) {
     k2node_insert_point(root_node, i, i, &st, &already_exists);
     expected_results.emplace_back(i, i);
   }
@@ -154,7 +154,7 @@ TEST(lazy_scan_test, test_k2node_full_scan_1) {
   struct k2node_lazy_handler_naive_scan_t lh;
   k2node_naive_scan_points_lazy_init(root_node, &st, &lh);
 
-  std::vector<std::pair<unsigned long, unsigned long>> results_lazy;
+  std::vector<std::pair<uint64_t, uint64_t>> results_lazy;
   for (;;) {
     int has_next;
     k2node_naive_scan_points_lazy_has_next(&lh, &has_next);
@@ -185,10 +185,10 @@ TEST(lazy_scan_test, test_k2node_full_scan_2) {
   struct k2qstate st;
   init_k2qstate(&st, treedepth, 256, cut_depth);
 
-  std::vector<std::pair<unsigned long, unsigned long>> expected_results;
+  std::vector<std::pair<uint64_t, uint64_t>> expected_results;
 
   int already_exists;
-  for (unsigned long i = 0; i < 1; i++) {
+  for (uint64_t i = 0; i < 1; i++) {
     k2node_insert_point(root_node, i, i, &st, &already_exists);
     expected_results.emplace_back(i, i);
   }
@@ -196,7 +196,7 @@ TEST(lazy_scan_test, test_k2node_full_scan_2) {
   struct k2node_lazy_handler_naive_scan_t lh;
   k2node_naive_scan_points_lazy_init(root_node, &st, &lh);
 
-  std::vector<std::pair<unsigned long, unsigned long>> results_lazy;
+  std::vector<std::pair<uint64_t, uint64_t>> results_lazy;
   for (;;) {
     int has_next;
     k2node_naive_scan_points_lazy_has_next(&lh, &has_next);
@@ -227,12 +227,12 @@ TEST(lazy_scan_test, test_k2node_band_scan_1) {
   struct k2qstate st;
   init_k2qstate(&st, treedepth, 255, cut_depth);
 
-  const unsigned long row_const_value = 1239;
+  const uint64_t row_const_value = 1239;
 
-  std::vector<unsigned long> expected_results;
+  std::vector<uint64_t> expected_results;
 
   int already_exists;
-  for (unsigned long i = 0; i < 10000; i++) {
+  for (uint64_t i = 0; i < 10000; i++) {
     k2node_insert_point(root_node, i, row_const_value, &st, &already_exists);
     expected_results.push_back(i);
   }
@@ -240,7 +240,7 @@ TEST(lazy_scan_test, test_k2node_band_scan_1) {
   struct k2node_lazy_handler_report_band_t lh;
   k2node_report_row_lazy_init(&lh, root_node, &st, row_const_value);
 
-  std::vector<unsigned long> results_lazy;
+  std::vector<uint64_t> results_lazy;
   for (;;) {
     int has_next;
     k2node_report_band_has_next(&lh, &has_next);

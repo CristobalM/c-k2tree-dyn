@@ -40,9 +40,9 @@ struct sequential_scan_result {
 
 #ifdef DEBUG_STATS
 struct debug_stats {
-  unsigned long time_on_sequential_scan;
-  unsigned long time_on_frontier_check;
-  unsigned long split_count;
+  uint64_t time_on_sequential_scan;
+  uint64_t time_on_frontier_check;
+  uint64_t split_count;
 };
 #endif
 

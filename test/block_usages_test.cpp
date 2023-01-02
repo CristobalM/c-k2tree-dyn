@@ -105,8 +105,8 @@ TEST(usages, naive_scan_1) {
   }
 }
 
-bool has_pair(struct vector_pair2dl_t *v, unsigned long col,
-              unsigned long row) {
+bool has_pair(struct vector_pair2dl_t *v, uint64_t col,
+              uint64_t row) {
   for (long i = 0; i < v->nof_items; i++) {
     struct pair2dl pair = v->data[i];
     if (col == pair.col && row == pair.row) {
@@ -218,10 +218,10 @@ TEST(usages, report_row_test_lazy_wreset_1) {
 
   int has_next = TRUE;
 
-  std::set<unsigned long> expected_values = {3, 8, 9, 15};
+  std::set<uint64_t> expected_values = {3, 8, 9, 15};
 
-  std::set<unsigned long> values;
-  std::set<unsigned long> values2;
+  std::set<uint64_t> values;
+  std::set<uint64_t> values2;
   for (;;) {
     report_band_has_next(&lh, &has_next);
     if (!has_next)
@@ -259,7 +259,7 @@ TEST(usages, report_all_test_lazy_wreset_1) {
   struct queries_state qs;
   init_queries_state(&qs, treedepth, MAX_NODES_IN_BLOCK, root_block);
 
-  std::set<std::pair<unsigned long, unsigned long>> init_elements = {
+  std::set<std::pair<uint64_t, uint64_t>> init_elements = {
       {0, 0},  {3, 3}, {15, 3}, {3, 15}, {30, 31}, {31, 8},
       {3, 30}, {3, 2}, {3, 29}, {8, 15}, {9, 15},  {15, 15}};
 
@@ -273,8 +273,8 @@ TEST(usages, report_all_test_lazy_wreset_1) {
 
   int has_next = TRUE;
 
-  std::set<std::pair<unsigned long, unsigned long>> values;
-  std::set<std::pair<unsigned long, unsigned long>> values2;
+  std::set<std::pair<uint64_t, uint64_t>> values;
+  std::set<std::pair<uint64_t, uint64_t>> values2;
 
   for (;;) {
     naive_scan_points_lazy_has_next(&lh, &has_next);

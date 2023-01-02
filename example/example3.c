@@ -25,6 +25,7 @@ SOFTWARE.
 #include <queries_state.h>
 
 #include <stdio.h>
+#include <inttypes.h>
 
 #include "definitions.h"
 
@@ -49,12 +50,12 @@ int main(void) {
   for (int i = 0; i < qty; i++) {
     struct pair2dl current = input_pairs.data[i];
 
-    printf("inserting %lu, %lu\n", current.col, current.row);
+    printf("inserting %" PRIu64 ", %" PRIu64 "\n", current.col, current.row);
     insert_point(root_block, current.col, current.row, &qs, &point_exists);
     int does_have_point;
     has_point(root_block, current.col, current.row, &qs, &does_have_point);
     if (!does_have_point) {
-      printf("doesn't have point (%lu, %lu)\n", current.col, current.row);
+      printf("doesn't have point (%" PRIu64 ", %" PRIu64 ")\n", current.col, current.row);
       goto clean_up;
     }
   }
@@ -70,7 +71,7 @@ int main(void) {
   printf("scanned points:\n");
   for (int i = 0; i < result.nof_items; i++) {
     struct pair2dl current = result.data[i];
-    printf("element %d = (%lu, %lu)\n", i, current.col, current.row);
+    printf("element %d = (%" PRIu64 ", %" PRIu64 ")\n", i, current.col, current.row);
   }
 
 clean_up:

@@ -30,15 +30,15 @@ make
 int main(void) {
   for (int i = 0; i < 10; i++) {
     uint32_t treedepth = 5;
-    unsigned long side = 1u << treedepth;
+    uint64_t side = 1u << treedepth;
     struct block *root_block = create_block();
 
     struct queries_state qs;
     init_queries_state(&qs, treedepth, MAX_NODES_IN_BLOCK, root_block);
 
     int point_exists;
-    for (unsigned long col = 0; col < side; col++) {
-      for (unsigned long row = 0; row < side; row++) {
+    for (uint64_t col = 0; col < side; col++) {
+      for (uint64_t row = 0; row < side; row++) {
         // printf("inserting col=%lu, row=%lu\n", col, row);
         insert_point(root_block, col, row, &qs, &point_exists);
       }
@@ -77,13 +77,13 @@ Also see examples.
 
 ```c
 
-int has_point(struct block *input_block, unsigned long col, unsigned long row,
+int has_point(struct block *input_block, uint64_t col, uint64_t row,
               struct queries_state *qs, int *result);
 
-int insert_point(struct block *input_block, unsigned long col, unsigned long row,
+int insert_point(struct block *input_block, uint64_t col, uint64_t row,
                  struct queries_state *qs, int *already_exists);
 
-int delete_point(struct block *input_block, unsigned long col, unsigned long row,
+int delete_point(struct block *input_block, uint64_t col, uint64_t row,
                  struct queries_state *qs, int *already_not_exists);
 
 int naive_scan_points(struct block *input_block, struct queries_state *qs,
@@ -94,18 +94,18 @@ int scan_points_interactively(struct block *input_block,
                               point_reporter_fun_t point_reporter,
                               void *report_state);
 
-int report_column(struct block *input_block, unsigned long col,
+int report_column(struct block *input_block, uint64_t col,
                   struct queries_state *qs, struct vector_pair2dl_t *result);
 
-int report_row(struct block *input_block, unsigned long row, struct queries_state *qs,
+int report_row(struct block *input_block, uint64_t row, struct queries_state *qs,
                struct vector_pair2dl_t *result);
 
-int report_column_interactively(struct block *input_block, unsigned long col,
+int report_column_interactively(struct block *input_block, uint64_t col,
                                 struct queries_state *qs,
                                 point_reporter_fun_t point_reporter,
                                 void *report_state);
 
-int report_row_interactively(struct block *input_block, unsigned long row,
+int report_row_interactively(struct block *input_block, uint64_t row,
                              struct queries_state *qs,
                              point_reporter_fun_t point_reporter,
                              void *report_state);
@@ -162,11 +162,11 @@ its leaves are the block's trees.
 (From k2node.h)
 
 ```c
-int k2node_has_point(struct k2node *k2node, unsigned long col, unsigned long row,
+int k2node_has_point(struct k2node *k2node, uint64_t col, uint64_t row,
                      struct k2qstate *st, int *result);
-int k2node_insert_point(struct k2node *input_node, unsigned long col, unsigned long row,
+int k2node_insert_point(struct k2node *input_node, uint64_t col, uint64_t row,
                         struct k2qstate *st, int *already_exists);
-int k2node_delete_point(struct k2node *input_node, unsigned long col, unsigned long row,
+int k2node_delete_point(struct k2node *input_node, uint64_t col, uint64_t row,
                         struct k2qstate *st, int *already_not_exists);
 
 int k2node_naive_scan_points(struct k2node *input_node, struct k2qstate *st,
@@ -177,29 +177,29 @@ int k2node_scan_points_interactively(struct k2node *input_node,
                                      point_reporter_fun_t point_reporter,
                                      void *report_state);
 
-int k2node_report_column(struct k2node *input_node, unsigned long col,
+int k2node_report_column(struct k2node *input_node, uint64_t col,
                          struct k2qstate *st, struct vector_pair2dl_t *result);
-int k2node_report_row(struct k2node *input_node, unsigned long row, struct k2qstate *st,
+int k2node_report_row(struct k2node *input_node, uint64_t row, struct k2qstate *st,
                       struct vector_pair2dl_t *result);
 
-int k2node_report_column_interactively(struct k2node *input_node, unsigned long col,
+int k2node_report_column_interactively(struct k2node *input_node, uint64_t col,
                                        struct k2qstate *st,
                                        point_reporter_fun_t point_reporter,
                                        void *report_state);
-int k2node_report_row_interactively(struct k2node *input_node, unsigned long row,
+int k2node_report_row_interactively(struct k2node *input_node, uint64_t row,
                                     struct k2qstate *st,
                                     point_reporter_fun_t point_reporter,
                                     void *report_state);
 
 struct k2node *create_k2node(void);
-int free_rec_k2node(struct k2node *input_node, unsigned long current_depth,
-                    unsigned long cut_depth);
+int free_rec_k2node(struct k2node *input_node, uint64_t current_depth,
+                    uint64_t cut_depth);
 
 int init_k2qstate(struct k2qstate *st, TREE_DEPTH_T treedepth,
                   MAX_NODE_COUNT_T max_nodes_count, TREE_DEPTH_T cut_depth);
 int clean_k2qstate(struct k2qstate *st);
 struct k2tree_measurement k2node_measure_tree_size(struct k2node *input_node,
-                                                   unsigned long cut_depth);
+                                                   uint64_t cut_depth);
 
 int k2node_naive_scan_points_lazy_init(
     struct k2node *input_node, struct k2qstate *st,

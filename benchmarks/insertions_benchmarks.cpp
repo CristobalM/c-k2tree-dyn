@@ -41,7 +41,7 @@ void random_benchmark_by_depth_dense(uint32_t treedepth, uint32_t points_count);
 
 int main(void) {
 
-  for (unsigned long i = 2; i < 20; i++) {
+  for (uint64_t i = 2; i < 20; i++) {
     random_benchmark_by_depth(i, 1 << i);
   }
   random_benchmark_by_depth(24, 1 << 20);
@@ -52,7 +52,7 @@ int main(void) {
 }
 
 void random_benchmark_by_depth(uint32_t treedepth, uint32_t points_count) {
-  unsigned long side = 1 << treedepth;
+  uint64_t side = 1 << treedepth;
   struct block *root_block = create_block();
 
   struct queries_state qs;
@@ -149,7 +149,7 @@ void random_benchmark_by_depth(uint32_t treedepth, uint32_t points_count) {
 
 void random_benchmark_by_depth_dense(uint32_t treedepth,
                                      uint32_t points_count) {
-  unsigned long side = 1 << treedepth;
+  uint64_t side = 1 << treedepth;
   struct block *root_block = create_block();
 
   struct queries_state qs;
