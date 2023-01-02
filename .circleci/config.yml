@@ -15,6 +15,9 @@ jobs:
     steps:
       - checkout
       - run:
+          name: "update"
+          command: "sudo apt update"
+      - run:
           name: "Install deps"
           command: "sudo apt install -y cmake googletest libgtest-dev"
       - run:
